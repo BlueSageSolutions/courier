@@ -1,2 +1,2 @@
 # courier
-A proxied command controller
+# courier

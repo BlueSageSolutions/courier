@@ -1,0 +1,19 @@
+- script: test
+  sources:
+  setup:
+    - executable: aws
+      command: sts
+      sub-command: get-caller-identity
+  main:
+    - executable: echo
+      command: arn.txt
+      arguments:
+        - name: arn
+          style: plain
+          source: test:setup:step-0
+          interpolation:
+            name: arn
+            type: jq
+            parameters:
+              - name: jq-query
+                value: .Arn
