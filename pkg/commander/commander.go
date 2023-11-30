@@ -1,6 +1,7 @@
 package commander
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -73,13 +74,15 @@ type Sleep struct {
 }
 
 type Command struct {
-	Executable string     `yaml:"executable"`
-	Name       string     `yaml:"command"`
-	Sensitive  bool       `yaml:"sensitive"`
-	Source     string     `yaml:"source"`
-	SubCommand string     `yaml:"sub-command"`
-	Arguments  []Argument `yaml:"arguments"`
-	Sleep      Sleep      `yaml:"sleep"`
+	Executable  string     `yaml:"executable"`
+	Name        string     `yaml:"command"`
+	Sensitive   bool       `yaml:"sensitive"`
+	Source      string     `yaml:"source"`
+	Environment []string   `yaml:"environment"`
+	Directory   string     `yaml:"directory"`
+	SubCommand  string     `yaml:"sub-command"`
+	Arguments   []Argument `yaml:"arguments"`
+	Sleep       Sleep      `yaml:"sleep"`
 }
 
 type Argument struct {
@@ -206,6 +209,36 @@ func LoadResourceLists(path string) (ResourceList, error) {
 	})
 
 	return resourceList, err
+}
+
+func LoadEnvironmentVariables(path, filename string) ([]string, error) {
+	fqPath := filename
+	if len(path) > 0 {
+		fqPath = path + "/" + filename
+	}
+	file, err := os.Open(fqPath)
+	if err != nil {
+		util.GetLogger().Error("failed to open file", zap.Error(err))
+		return nil, err
+	}
+	defer file.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Skip lines that start with '#'
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		lines = append(lines, line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		util.GetLogger().Error("error reading lines", zap.Error(err))
+		return nil, err
+	}
+	return lines, nil
 }
 
 func LoadDeploymentScript(file string) (*DeploymentScriptList, error) {
@@ -545,8 +578,18 @@ func (command Command) BuildCmd(deploymentScript DeploymentScript, outputs Deplo
 		args = append(args, argument.Resolve(command.Executable, deploymentScript, outputs))
 	}
 
+	var environment []string
+	for _, shellScript := range command.Environment {
+		vars, err := LoadEnvironmentVariables(command.Directory, shellScript)
+		if err != nil {
+			return nil, err
+		}
+		environment = append(environment, vars...)
+	}
 	cmd := &exec.Cmd{
+		Dir:  command.Directory,
 		Path: executablePath,
+		Env:  environment,
 		Args: args,
 	}
 	return cmd, nil

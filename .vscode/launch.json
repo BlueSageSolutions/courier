@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "/Users/cypherhat/go/src/github.com/BlueSageSolutions/courier/main.go",
+            "program": "/Users/jploughman/go/src/github.com/BlueSageSolutions/courier/main.go",
             "args": [
                 "run"
               ],

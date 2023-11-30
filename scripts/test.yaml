@@ -1,19 +1,18 @@
 - script: test
   sources:
   setup:
-    - executable: aws
-      command: sts
-      sub-command: get-caller-identity
-  main:
-    - executable: echo
-      command: arn.txt
+    - executable: bash
+      directory: /Users/jploughman/projects/deploy-scripts/
+      command: setClient
       arguments:
-        - name: arn
+        - name: client
           style: plain
-          source: test:setup:step-0
-          interpolation:
-            name: arn
-            type: jq
-            parameters:
-              - name: jq-query
-                value: .Arn
+          value: mfm
+  main:
+    - executable: bash
+      directory: /Users/jploughman/projects/deploy-scripts/
+      environment: 
+        - config-common
+        - config-common-db
+        - config-mfm
+      command: checkAlarms

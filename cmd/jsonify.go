@@ -20,7 +20,7 @@ var jsonifyCmd = &cobra.Command{
 	Short: "Turns a BlueSage config file into JSON",
 	Long:  `Convert config to JSON.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		inputFile, err := os.Open(JsonifyFile)
+		inputFile, err := os.Open(FileToConvert)
 		if err != nil {
 			panic(err)
 		}
@@ -82,7 +82,7 @@ var jsonifyCmd = &cobra.Command{
 
 func save(results json.RawMessage) {
 	// Create and open the output file
-	outputFile, err := os.Create(JsonifyFile + ".json")
+	outputFile, err := os.Create(FileToConvert + ".json")
 	if err != nil {
 		panic(err)
 	}
@@ -98,6 +98,6 @@ func save(results json.RawMessage) {
 
 func init() {
 	rootCmd.AddCommand(jsonifyCmd)
-	jsonifyCmd.Flags().StringVarP(&JsonifyFile, "file", "f", "", "File to jsonify")
+	jsonifyCmd.Flags().StringVarP(&FileToConvert, "file", "f", "", "File to jsonify")
 
 }
