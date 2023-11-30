@@ -1,0 +1,60 @@
+Major Deployment Template
+### Afternoon of Deployment
+
+./gitPullRebase
+./configCheck
+
+Update config-local
+	deployItems
+	comment out dumpTables or make sure it's empty
+	systemMessage (if necessary)
+
+./setSystemMessage
+
+
+### Just Prior to Deployment
+
+./clean
+./backup
+
+./flyway pullinfo
+./flyway listDumpTables
+
+Build SFA for PROD (HB, MM)
+Build LION for PROD (HB, MM, MFM, SEQ)
+Build Hydra for PROD (PRIME, KIND, MM, NRL)
+
+./download
+
+### Deployment Time
+
+Send deployment announcement email
+
+./backupDB
+or
+./snapshot
+
+./disableAlarms
+
+./setMaintenancePage
+./cycleApps stop
+./clearLockedLoans
+./setSystemMessage clear
+
+./flyway migrate
+
+
+./deployRules
+./deployLendingServicesRolling (HB, KIND, MM, MFM, SEQ?)
+./deployApps
+
+./setMaintenancePage clear
+./listAppVersions       *NASB and Other SSO Clients 
+./healthCheck sleep 60 done
+./enableAlarms
+
+Make sure the LOS batch instance is up (PRIME, HB)
+Deploy to TRAIN (PRIME, PHL) or PRODMIRROR (HB, KIND, MM (when it exists), MFM, SEQ? (need to convince them))
+Tag master branches
+Send "all clear" email
+

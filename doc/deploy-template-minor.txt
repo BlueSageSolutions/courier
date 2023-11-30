@@ -1,0 +1,59 @@
+Minor Deployment Template
+### Afternoon of Deployment downloadServer=mfm-uat
+
+./gitPullRebase
+./configCheck
+
+Update config-local
+	deployItems
+	dumpTables (may have to update again later)
+	systemMessage (if necessary)
+
+./setSystemMessage
+
+
+### Just Prior to Deployment
+
+./clean
+./backup
+
+./flyway pullinfo
+
+Build SFA for PROD (HB, MM)
+Build LION for PROD (HB, MM, MFM, SEQ)
+Build Hydra for PROD (PRIME, KIND, MM, NRL)
+
+./download
+
+### Deployment Time
+
+Send deployment announcement email
+
+./backupDB
+
+./disableAlarms
+
+./flyway migrate
+
+./deployRules
+./deployLendingServicesRolling 
+./setMaintenancePage
+./setSystemMessage clear
+./deployApps
+
+
+
+./clearLockedLoans
+
+./healthCheck sleep 60 done
+./setMaintenancePage clear
+
+./listAppVersions       *NASB and Other SSO Clients 
+
+./enableAlarms
+
+Make sure the LOS batch instance is up (PRIME, HB)
+Deploy to TRAIN (PRIME, PHL) or PRODMIRROR (HB, KIND, MM (when it exists), MFM, SEQ? (need to convince them))
+Tag master branches
+Send "all clear" email
+

@@ -22,6 +22,7 @@ func fixDots(path string) string {
 var CurlUrl string
 var CurlPayloadFile string
 var CurlHeadersFile string
+var JsonifyFile string
 var CurlMethod string
 var FilterDir string
 var DeploymentScriptDir string
