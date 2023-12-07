@@ -471,7 +471,7 @@ func (deploymentScript DeploymentScript) Execute() (DeploymentScriptResult, erro
 	}
 
 	// We don't exit here - we need to try to cleanup first
-	outputs, err = deploymentScript.MainScript.Execute("test", deploymentScript, outputs)
+	outputs, err = deploymentScript.MainScript.Execute("main", deploymentScript, outputs)
 	if err != nil {
 		util.GetLogger().Error(deploymentScript.Name, zap.Error(err))
 	}

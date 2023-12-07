@@ -32,7 +32,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws s3api create-bucket --bucket bluesage-devops-cloudquery-bucket --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2`
 
-**Script Reference**: `cloudquery-ecs:test:step-0`
+**Script Reference**: `cloudquery-ecs:main:step-0`
 
 **Output**:
 
@@ -45,7 +45,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws ecs create-cluster --cluster-name bluesage-devops-cloudquery-ecs --region us-east-2`
 
-**Script Reference**: `cloudquery-ecs:test:step-1`
+**Script Reference**: `cloudquery-ecs:main:step-1`
 
 **Output**:
 
@@ -76,7 +76,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws logs create-log-group --log-group-name bluesage-devops-cloudquery-logs --region us-east-2`
 
-**Script Reference**: `cloudquery-ecs:test:step-2`
+**Script Reference**: `cloudquery-ecs:main:step-2`
 
 **Output**:
 
@@ -86,7 +86,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws logs put-retention-policy --log-group-name bluesage-devops-cloudquery-logs --retention-in-days 14`
 
-**Script Reference**: `cloudquery-ecs:test:step-3`
+**Script Reference**: `cloudquery-ecs:main:step-3`
 
 **Output**:
 
@@ -96,7 +96,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws iam create-role --role-name bluesage-devops-cloudquery-task-role --assume-role-policy-document file:///tmp/cloudquery-ecs.task-role-trust-policy.json`
 
-**Script Reference**: `cloudquery-ecs:test:step-4`
+**Script Reference**: `cloudquery-ecs:main:step-4`
 
 **Output**:
 
@@ -105,9 +105,9 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
     "Role": {
         "Path": "/",
         "RoleName": "bluesage-devops-cloudquery-task-role",
-        "RoleId": "AROAY3WRRNAFKMWEKPD7C",
+        "RoleId": "AROAY3WRRNAFLAJ4QTQHK",
         "Arn": "arn:aws:iam::609251059722:role/bluesage-devops-cloudquery-task-role",
-        "CreateDate": "2023-12-07T17:54:12+00:00",
+        "CreateDate": "2023-12-07T18:34:37+00:00",
         "AssumeRolePolicyDocument": {
             "Version": "2012-10-17",
             "Statement": [
@@ -128,7 +128,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws iam put-role-policy --role-name bluesage-devops-cloudquery-task-role --policy-name bluesage-devops-cloudquery-task-policy --policy-document file:///tmp/cloudquery-ecs.data-access-policy.json`
 
-**Script Reference**: `cloudquery-ecs:test:step-5`
+**Script Reference**: `cloudquery-ecs:main:step-5`
 
 **Output**:
 
@@ -138,7 +138,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws iam attach-role-policy --role-name bluesage-devops-cloudquery-task-role --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess`
 
-**Script Reference**: `cloudquery-ecs:test:step-6`
+**Script Reference**: `cloudquery-ecs:main:step-6`
 
 **Output**:
 
@@ -148,7 +148,7 @@ a2luZDogc291cmNlIHNwZWM6CiAgbmFtZTogYXdzCiAgcGF0aDogImNsb3VkcXVlcnkvYXdzIgogIHJl
 
 **Command**: `/usr/local/bin/aws iam attach-role-policy --role-name bluesage-devops-cloudquery-task-role --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy`
 
-**Script Reference**: `cloudquery-ecs:test:step-7`
+**Script Reference**: `cloudquery-ecs:main:step-7`
 
 **Output**:
 
