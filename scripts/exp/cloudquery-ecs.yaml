@@ -129,16 +129,24 @@
       arguments:
         - name: bucket
           value: bluesage-devops-cloudquery-bucket
+        - name: region
+          value: us-east-2
+        - name: create-bucket-configuration
+          value: LocationConstraint=us-east-2
     - command: ecs
       sub-command: create-cluster
       arguments:
         - name: cluster-name
           value: bluesage-devops-cloudquery-ecs
+        - name: region
+          value: us-east-2
     - command: logs
       sub-command: create-log-group
       arguments:
         - name: log-group-name
           value: bluesage-devops-cloudquery-logs
+        - name: region
+          value: us-east-2
     - command: logs
       sub-command: put-retention-policy
       arguments:
@@ -218,7 +226,7 @@
     - command: ecs
       sub-command: delete-cluster
       arguments:
-        - name: cluster-name
+        - name: cluster
           value: bluesage-devops-cloudquery-ecs
     - executable: aws
       command: s3api

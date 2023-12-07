@@ -374,9 +374,21 @@ func (argument Argument) ResolveFileName(executable string, deploymentScript Dep
 	return filename
 }
 
+func (argument Argument) Enquote(value string) string {
+	argumentValue := value
+	switch argument.QuoteType {
+	case COMMAND_QUOTE_TYPE_NONE:
+	case COMMAND_QUOTE_TYPE_SINGLE_QUOTE:
+		argumentValue = fmt.Sprintf("'%s'", argumentValue)
+	case COMMAND_QUOTE_TYPE_DOUBLE_QUOTE:
+		argumentValue = fmt.Sprintf("\"%s\"", argumentValue)
+	}
+	return argumentValue
+}
+
 func (argument Argument) Resolve(executable string, deploymentScript DeploymentScript, outputs DeploymentScriptResult) string {
 	if len(argument.Value) > 0 {
-		return argument.Value
+		return argument.Enquote(argument.Value)
 	}
 	argumentValue := ""
 	source := argument.ResolveSource(deploymentScript, outputs)
@@ -399,14 +411,7 @@ func (argument Argument) Resolve(executable string, deploymentScript DeploymentS
 			argumentValue = argument.ResolveFileName(executable, deploymentScript, outputs)
 		}
 	}
-	switch argument.QuoteType {
-	case COMMAND_QUOTE_TYPE_NONE:
-	case COMMAND_QUOTE_TYPE_SINGLE_QUOTE:
-		argumentValue = fmt.Sprintf("'%s'", argumentValue)
-	case COMMAND_QUOTE_TYPE_DOUBLE_QUOTE:
-		argumentValue = fmt.Sprintf("\"%s\"", argumentValue)
-	}
-	return argumentValue
+	return argument.Enquote(argumentValue)
 }
 
 func (deploymentScriptList DeploymentScriptList) Execute() (DeploymentScriptResults, []error) {
