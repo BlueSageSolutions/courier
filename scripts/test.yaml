@@ -9,7 +9,8 @@
           style: plain
           value: mfm
   main:
-    - executable: bash
+    - description: check the alarms
+      executable: bash
       directory: /Users/jploughman/projects/deploy-scripts/
       environment: 
         - config-common

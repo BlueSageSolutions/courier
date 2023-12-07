@@ -1,0 +1,229 @@
+- script: cloudquery-ecs
+  sources:
+    task-definition:
+      data: >
+        {
+          "containerDefinitions": [
+            {
+              "name": "ScheduledWorker",
+              "image": "ghcr.io/cloudquery/cloudquery:4.2.0",
+              "command": [
+                "/bin/sh",
+                "-c",
+                "echo $CQ_CONFIG| base64 -d  > ./file.yml;/app/cloudquery sync ./file.yml --log-console --log-format json"
+              ],
+              "environment": [
+                { "name": "CQ_CONFIG", "value": "<REPLACE_WITH_CQ_BASE64_ENCODED_CONFIG>" }
+              ],
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "bluesage-devops-cloudquery-logs",
+                  "awslogs-region": "<REPLACE_WITH_AWS_REGION>",
+                  "awslogs-stream-prefix": "<REPLACE_WITH_PREFIX_FOR_STREAM>"
+                }
+              },
+              "entryPoint": [""]
+            }
+          ],
+          "family": "<REPLACE_WITH_TASK_FAMILY_NAME>",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "1024",
+          "memory": "2048",
+          "networkMode": "awsvpc",
+          "taskRoleArn": "<REPLACE_WITH_TASK_ROLE_ARN>",
+          "executionRoleArn": "<REPLACE_WITH_TASK_ROLE_ARN>"
+        }
+    data-access-policy:
+      data: >
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": [
+                        "s3:PutObject"
+                    ],
+                    "Resource": [
+                        "arn:aws:s3:::bluesage-devops-cloudquery-bucket/*"
+                    ],
+                    "Effect": "Allow"
+                },
+                {
+                    "Action": [
+                        "s3:GetObject"
+                    ],
+                    "Effect": "Deny",
+                    "NotResource": [
+                        "arn:aws:s3:::bluesage-devops-cloudquery-bucket/*"
+                    ]
+                },
+                {
+                    "Action": [
+                        "cloudformation:GetTemplate",
+                        "dynamodb:GetItem",
+                        "dynamodb:BatchGetItem",
+                        "dynamodb:Query",
+                        "dynamodb:Scan",
+                        "ec2:GetConsoleOutput",
+                        "ec2:GetConsoleScreenshot",
+                        "ecr:BatchGetImage",
+                        "ecr:GetAuthorizationToken",
+                        "ecr:GetDownloadUrlForLayer",
+                        "kinesis:Get*",
+                        "lambda:GetFunction",
+                        "logs:GetLogEvents",
+                        "sdb:Select*",
+                        "sqs:ReceiveMessage"
+                    ],
+                    "Resource": "*",
+                    "Effect": "Deny"
+                }
+            ]
+        }      
+    task-role-trust-policy:
+      data: >
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }      
+    cloudquery-config:
+      data: >
+        kind: source
+        spec:
+          name: aws
+          path: "cloudquery/aws"
+          registry: "cloudquery"
+          version: "v22.19.2"
+          tables: ["aws_s3_buckets"]
+          destinations: ["s3"] 
+        kind: destination
+        spec:
+          name: "s3"
+          path: "cloudquery/s3"
+          registry: "cloudquery"
+          version: "v4.8.3"
+          write_mode: "append"
+          spec:
+            bucket: bluesage-devops-cloudquery-bucket
+            path: "{{TABLE}}/{{UUID}}.parquet"
+            format: "parquet"
+            athena: true    
+  setup:
+    - executable: base64
+      source: cloudquery-config
+    - command: sts
+      sub-command: get-caller-identity
+  main:
+    - executable: aws
+      command: s3api
+      sub-command: create-bucket
+      arguments:
+        - name: bucket
+          value: bluesage-devops-cloudquery-bucket
+    - command: ecs
+      sub-command: create-cluster
+      arguments:
+        - name: cluster-name
+          value: bluesage-devops-cloudquery-ecs
+    - command: logs
+      sub-command: create-log-group
+      arguments:
+        - name: log-group-name
+          value: bluesage-devops-cloudquery-logs
+    - command: logs
+      sub-command: put-retention-policy
+      arguments:
+        - name: log-group-name
+          value: bluesage-devops-cloudquery-logs
+        - name: retention-in-days
+          value: 14
+    - command: iam
+      sub-command: create-role
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: assume-role-policy-document
+          source: task-role-trust-policy
+          source-type: file
+    - command: iam
+      sub-command: put-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-name
+          value: bluesage-devops-cloudquery-task-policy
+        - name: policy-document
+          source: data-access-policy
+          source-type: file
+    - command: iam
+      sub-command: attach-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-arn
+          value: arn:aws:iam::aws:policy/ReadOnlyAccess
+    - command: iam
+      sub-command: attach-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-arn
+          value: arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  cleanup:
+    - command: iam
+      sub-command: detach-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-arn
+          value: arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+    - command: iam
+      sub-command: detach-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-arn
+          value: arn:aws:iam::aws:policy/ReadOnlyAccess
+    - command: iam
+      sub-command: delete-role-policy
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: policy-name
+          value: bluesage-devops-cloudquery-task-policy
+    - command: iam
+      sub-command: delete-role
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+    - command: logs
+      sub-command: delete-retention-policy
+      arguments:
+        - name: log-group-name
+          value: bluesage-devops-cloudquery-logs
+    - command: logs
+      sub-command: delete-log-group
+      arguments:
+        - name: log-group-name
+          value: bluesage-devops-cloudquery-logs
+    - command: ecs
+      sub-command: delete-cluster
+      arguments:
+        - name: cluster-name
+          value: bluesage-devops-cloudquery-ecs
+    - executable: aws
+      command: s3api
+      sub-command: delete-bucket
+      arguments:
+        - name: bucket
+          value: bluesage-devops-cloudquery-bucket
+

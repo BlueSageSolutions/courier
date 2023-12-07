@@ -74,25 +74,33 @@ type Sleep struct {
 }
 
 type Command struct {
-	Executable  string     `yaml:"executable"`
-	Name        string     `yaml:"command"`
-	Sensitive   bool       `yaml:"sensitive"`
-	Source      string     `yaml:"source"`
-	Environment []string   `yaml:"environment"`
-	Directory   string     `yaml:"directory"`
-	SubCommand  string     `yaml:"sub-command"`
-	Arguments   []Argument `yaml:"arguments"`
-	Sleep       Sleep      `yaml:"sleep"`
+	Executable   string        `yaml:"executable"`
+	Name         string        `yaml:"command"`
+	Description  string        `yaml:"description"`
+	Sensitive    bool          `yaml:"sensitive"`
+	Source       string        `yaml:"source"`
+	Replacements []Replacement `yaml:"replacements"`
+	Environment  []string      `yaml:"environment"`
+	Directory    string        `yaml:"directory"`
+	SubCommand   string        `yaml:"sub-command"`
+	Arguments    []Argument    `yaml:"arguments"`
+	Sleep        Sleep         `yaml:"sleep"`
 }
 
 type Argument struct {
 	Name          string                    `yaml:"name"`
+	Description   string                    `yaml:"description"`
 	Value         string                    `yaml:"value"`
 	Style         string                    `yaml:"style"`
 	QuoteType     string                    `yaml:"quote-type"`
 	SourceType    string                    `yaml:"source-type"`
 	Source        string                    `yaml:"source"`
 	Interpolation *transform.Transformation `yaml:"interpolation"`
+}
+
+type Replacement struct {
+	Match       string `yaml:"match"`
+	ReplaceWith string `yaml:"replace-with"`
 }
 
 type Source struct {
@@ -102,6 +110,7 @@ type Source struct {
 
 type DeploymentScript struct {
 	Name          string            `yaml:"script"`
+	Description   string            `yaml:"description"`
 	Sources       map[string]Source `yaml:"sources"`
 	SetupScript   Script            `yaml:"setup"`
 	MainScript    Script            `yaml:"main"`
@@ -311,8 +320,28 @@ func (source Source) Resolve(sourceName string) string {
 	return resolved
 }
 
+func (command Command) WriteInterpolatedSource(source, interpolated string) (string, error) {
+	filename := fmt.Sprintf("/tmp/_%s.json", strings.ReplaceAll(source, ":", "_"))
+	err := os.WriteFile(filename, []byte(interpolated), 0644)
+	if err != nil {
+		return "", err
+	}
+	return filename, nil
+}
+
+func (command Command) InterpolateSource(deploymentScript DeploymentScript, source string, outputs DeploymentScriptResult) string {
+	raw := ResolveSourceFromFile(deploymentScript, source, outputs)
+	for _, replacement := range command.Replacements {
+		replaceWith := ResolveSourceFromFile(deploymentScript, replacement.ReplaceWith, outputs)
+		replaceWith = strings.TrimSpace(replaceWith)
+		raw = strings.ReplaceAll(raw, replacement.Match, replaceWith)
+	}
+	return raw
+}
+
 func ResolveSourceFromFile(deploymentScript DeploymentScript, source string, outputs DeploymentScriptResult) string {
-	yfile, err := os.ReadFile(deploymentScript.SourceAsFileName(source, outputs))
+	filename := deploymentScript.SourceAsFileName(source, outputs)
+	yfile, err := os.ReadFile(filename)
 	if err != nil {
 		return string(EmptyResult())
 	}
@@ -395,20 +424,22 @@ func (deploymentScriptList DeploymentScriptList) Execute() (DeploymentScriptResu
 }
 
 func (deploymentScript DeploymentScript) SourceAsFileName(source string, outputs DeploymentScriptResult) string {
+	var err error
 	_, ok := deploymentScript.Sources[source]
+	filename := fmt.Sprintf("/tmp/%s.%s.json", deploymentScript.Name, source)
 	if !ok {
 		// need to render an output as a file
 		for _, result := range outputs {
 			if result.Script == source {
-				filename, err := result.WriteOutput()
+				filename, err = result.WriteOutput()
 				if err != nil {
 					util.GetLogger().Error(fmt.Sprintf("failed to write %s", filename), zap.Error(err))
 				}
-				return filename
 			}
 		}
 	}
-	return fmt.Sprintf("/tmp/%s.%s.json", deploymentScript.Name, source)
+
+	return filename
 }
 
 func (deploymentScript DeploymentScript) InitializeSources() error {
@@ -518,6 +549,11 @@ func CatCommand(filename string) (*exec.Cmd, error) {
 
 func (command Command) ExecuteCatPipe(deploymentScript DeploymentScript, outputs DeploymentScriptResult) (string, json.RawMessage, error) {
 	filename := deploymentScript.SourceAsFileName(command.Source, outputs)
+	if command.Replacements != nil {
+		interpolated := command.InterpolateSource(deploymentScript, command.Source, outputs)
+		filename, _ = command.WriteInterpolatedSource(command.Source, interpolated)
+	}
+
 	catCmd, err := CatCommand(filename)
 	if err != nil {
 		return "", EmptyResult(), err

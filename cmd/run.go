@@ -61,5 +61,5 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts", "Directory containing deployment scriptss")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts/exp", "Directory containing deployment scriptss")
 }
