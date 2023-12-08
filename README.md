@@ -153,3 +153,25 @@ Here is an example of the `cleanup` section of the `main` script above. It will 
           value: bluesage-devops-cloudquery-bucket
 
 ```
+
+## Installation
+
+This is a golang utility, so you need to install `go` to build it.
+
+`brew install go` (If you are mac)
+
+Then, to install `courier`:
+
+`go install github.com/BlueSageSolutions/courier`
+
+## Running
+
+There is [a sample deployment script](./scripts/exp/cloudquery-ecs.yaml) that you can use. It will create and delete AWS resources in `us-east-2`, so be aware.
+
+The following command will run all the scripts in the `./scripts/exp` asynchronously (in parallel):
+
+```sh
+courier run -s ./scripts/exp -m -c
+```
+
+[Sample results are here](./scripts/exp/deployed-at-2023-12-08.10-39-19/README.md).
