@@ -20,12 +20,11 @@ A few examples might serve until more comprehensive documentation is developed.
 
 ### 3 Stages: Setup, Main, Cleanup
 
-Here is an example of the `setup` section of a deployment script:
+Here is an example of the `setup` section of a deployment script. Note: one of the *opinions* is that AWS is the default executable. Any executable can be specified, but if one is not, then `courier` assumes you mean the `awscli`:
 
 ```yaml
   setup:
-    - executable: aws
-      command: sts
+    - command: sts
       sub-command: get-caller-identity
 ```
 
@@ -35,8 +34,7 @@ Here is an example of the `main` section of a script. This will create a bucket,
 
 ```yaml
   main:
-    - executable: aws
-      command: s3api
+    - command: s3api
       sub-command: create-bucket
       arguments:
         - name: bucket
@@ -145,8 +143,7 @@ Here is an example of the `cleanup` section of the `main` script above. It will 
       arguments:
         - name: cluster
           value: bluesage-devops-cloudquery-ecs
-    - executable: aws
-      command: s3api
+    - command: s3api
       sub-command: delete-bucket
       arguments:
         - name: bucket

@@ -123,8 +123,7 @@
     - command: sts
       sub-command: get-caller-identity
   main:
-    - executable: aws
-      command: s3api
+    - command: s3api
       sub-command: create-bucket
       arguments:
         - name: bucket
@@ -228,8 +227,7 @@
       arguments:
         - name: cluster
           value: bluesage-devops-cloudquery-ecs
-    - executable: aws
-      command: s3api
+    - command: s3api
       sub-command: delete-bucket
       arguments:
         - name: bucket
