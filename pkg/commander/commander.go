@@ -658,17 +658,28 @@ func (command Command) ExecuteNoPipe(deploymentScript DeploymentScript, outputs 
 }
 
 func (command Command) SleepBefore(cmdString, label string) {
-	fmt.Printf("[%s] prior to execution: %s\n", timestamp(), label)
-	fmt.Printf("\tcommand to execution: %s\n", cmdString)
-	fmt.Printf("\tdelay-before: %d\n\texecutable: %s\n\tcommand: %s\n\tsub-command: %s\n\tmessage: %s\n", command.Sleep.Before, command.Executable, command.Name, command.SubCommand, command.Sleep.BeforeMessage)
+	fmt.Println("----------------------------------------------------------------------")
+	fmt.Printf("[%s] prior to executing a command in the script: %s\n", timestamp(), label)
+	fmt.Println("----------------------------------------------------------------------")
+	fmt.Printf("\tdelay-before: %d\n", command.Sleep.Before)
+	fmt.Printf("\tcommand to execute: %s\n", cmdString)
+	if len(command.Sleep.BeforeMessage) > 0 {
+		fmt.Printf("\tmessage: %s\n", command.Sleep.BeforeMessage)
+	}
+
 	time.Sleep(time.Duration(command.Sleep.Before) * time.Second)
 }
 
 func (command Command) SleepAfter(cmdString, label string, message json.RawMessage) {
-	fmt.Printf("[%s] after to execution: %s\n", timestamp(), label)
+	fmt.Println("----------------------------------------------------------------------")
+	fmt.Printf("[%s] after executing a command in the script: %s\n", timestamp(), label)
+	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("\tcommand executed: %s\n", cmdString)
-	fmt.Printf("\tresults: %s\n", string(message))
-	fmt.Printf("\tdelay-after: %d\n\texecutable: %s\n\tcommand: %s\n\tsub-command: %s\n\tmessage: %s\n", command.Sleep.After, command.Executable, command.Name, command.SubCommand, command.Sleep.AfterMessage)
+	fmt.Printf("\tdelay-after: %d\n", command.Sleep.After)
+	fmt.Printf("\tresults:\n%s\n", string(message))
+	if len(command.Sleep.AfterMessage) > 0 {
+		fmt.Printf("\tmessage: %s\n", command.Sleep.AfterMessage)
+	}
 	time.Sleep(time.Duration(command.Sleep.After) * time.Second)
 }
 
