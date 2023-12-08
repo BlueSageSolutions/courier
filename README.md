@@ -1,4 +1,12 @@
 # courier: a proxied command controller
+- [courier: a proxied command controller](#courier-a-proxied-command-controller)
+  - [The Deployment Script](#the-deployment-script)
+    - [3 Stages: Setup, Main, Cleanup](#3-stages-setup-main-cleanup)
+  - [Pipelining](#pipelining)
+    - [Example](#example)
+      - [Derive from template](#derive-from-template)
+  - [Installation](#installation)
+  - [Running](#running)
 
 What is a *proxied command controller*? It is basically a script runner that allows BlueSage DevSecOps opinions to inform the execution of scripts and commands both prior to and after the execution of said scripts/commands.
 
@@ -151,6 +159,103 @@ Here is an example of the `cleanup` section of the `main` script above. It will 
 
 ```
 
+## Pipelining
+
+Deployment often consists of retrieving a deployment specific-value (e.g., a string like "UAT" or an identifier of a newly created resource) and propagating it downstream. This "propagation" is typically a match-and-replace operation on file names and contents. `courier` facilitates this by allowing the results of a previous command to be used to replace data derived along the way.
+
+### Example
+
+Follows is a simple example:
+
+`courier` allows you to define `sources` of data that drive a deployment. These sources can be templates. Consider the ECS task definition:
+
+```yaml
+- script: cloudquery-ecs
+  sources:
+    task-definition:
+      data: >
+        {
+          "containerDefinitions": [
+            {
+              "name": "ScheduledWorker",
+              "image": "ghcr.io/cloudquery/cloudquery:4.2.0",
+              "command": [
+                "/bin/sh",
+                "-c",
+                "echo $CQ_CONFIG| base64 -d  > ./file.yml;/app/cloudquery sync ./file.yml --log-console --log-format json"
+              ],
+              "environment": [
+                { "name": "CQ_CONFIG", "value": "<REPLACE_WITH_CQ_BASE64_ENCODED_CONFIG>" }
+              ],
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "bluesage-devops-cloudquery-logs",
+                  "awslogs-region": "us-east-2",
+                  "awslogs-stream-prefix": "cloudquery-"
+                }
+              },
+              "entryPoint": [""]
+            }
+          ],
+          "family": "cloudquery",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "1024",
+          "memory": "2048",
+          "networkMode": "awsvpc",
+          "taskRoleArn": "<REPLACE_WITH_TASK_ROLE_ARN>",
+          "executionRoleArn": "<REPLACE_WITH_TASK_ROLE_ARN>"
+        }
+```
+
+There are a few things that need to be replaced:
+
+* `<REPLACE_WITH_CQ_BASE64_ENCODED_CONFIG>`
+* `<REPLACE_WITH_TASK_ROLE_ARN>`
+
+The ARN isn't known for a bit:
+
+```yaml
+    - command: iam
+      sub-command: create-role
+      arguments:
+        - name: role-name
+          value: bluesage-devops-cloudquery-task-role
+        - name: assume-role-policy-document
+          source: task-role-trust-policy
+          source-type: file
+```
+Since we need the `"` trimmed from the ARN we need a tiny step (`step-8` of `main`)
+
+```yaml
+    - executable: jq
+      sub-command: -r
+      command: .Role.Arn
+      source: cloudquery-ecs:main:step-4
+```
+
+And the base64 encoded config needs to be computed at setup. This is `step-0` of the `setup` section of the deployment script. (We start at `0` because we code.):
+
+```yaml
+  setup:
+    - executable: base64
+      source: cloudquery-config
+```
+
+#### Derive from template
+
+Putting it together, we use the trimmed ARN and the base64 encoded config:
+
+```yaml
+    - executable: cat
+      source: task-definition
+      replacements:
+        - match: <REPLACE_WITH_CQ_BASE64_ENCODED_CONFIG>
+          replace-with: cloudquery-ecs:setup:step-0
+        - match: <REPLACE_WITH_TASK_ROLE_ARN>
+          replace-with: cloudquery-ecs:main:step-8
+```
+
 ## Installation
 
 This is a golang utility, so you need to install `go` to build it.
@@ -172,3 +277,4 @@ courier run -s ./scripts/exp -m -c
 ```
 
 [Sample results are here](./scripts/exp/deployed-at-2023-12-08.10-39-19/README.md).
+

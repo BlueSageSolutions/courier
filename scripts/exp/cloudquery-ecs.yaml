@@ -19,14 +19,14 @@
                 "logDriver": "awslogs",
                 "options": {
                   "awslogs-group": "bluesage-devops-cloudquery-logs",
-                  "awslogs-region": "<REPLACE_WITH_AWS_REGION>",
-                  "awslogs-stream-prefix": "<REPLACE_WITH_PREFIX_FOR_STREAM>"
+                  "awslogs-region": "us-east-2",
+                  "awslogs-stream-prefix": "cloudquery-"
                 }
               },
               "entryPoint": [""]
             }
           ],
-          "family": "<REPLACE_WITH_TASK_FAMILY_NAME>",
+          "family": "cloudquery",
           "requiresCompatibilities": ["FARGATE"],
           "cpu": "1024",
           "memory": "2048",
@@ -185,6 +185,17 @@
           value: bluesage-devops-cloudquery-task-role
         - name: policy-arn
           value: arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+    - executable: jq
+      sub-command: -r
+      command: .Role.Arn
+      source: cloudquery-ecs:main:step-4
+    - executable: cat
+      source: task-definition
+      replacements:
+        - match: <REPLACE_WITH_CQ_BASE64_ENCODED_CONFIG>
+          replace-with: cloudquery-ecs:setup:step-0
+        - match: <REPLACE_WITH_TASK_ROLE_ARN>
+          replace-with: cloudquery-ecs:main:step-8
   cleanup:
     - command: iam
       sub-command: detach-role-policy
