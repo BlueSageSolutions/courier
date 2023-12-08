@@ -50,6 +50,13 @@ func runDeploymentScripts() {
 	os.Setenv("ENABLE_HEC", "false")
 
 	fmt.Printf("directory: %s\n", DeploymentScriptDir)
+	for _, scriptList := range *deploymentScripts {
+		for scriptIndex, script := range scriptList.DeploymentScripts {
+			script.RunCleanup = RunCleanup
+			script.RunMain = RunMain
+			scriptList.DeploymentScripts[scriptIndex] = script
+		}
+	}
 	results := deploymentScripts.Execute()
 	_, err = results.Publish(DeploymentScriptDir, *deploymentScripts)
 	if err != nil {
@@ -61,5 +68,7 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts/exp", "Directory containing deployment scriptss")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts/exp", "Directory containing deployment scripts")
+	deployCmd.Flags().BoolVarP(&RunCleanup, "runCleanup", "c", false, "Run the cleanup script")
+	deployCmd.Flags().BoolVarP(&RunMain, "runMain", "m", true, "Run the main script")
 }

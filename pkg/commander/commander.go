@@ -113,7 +113,9 @@ type DeploymentScript struct {
 	Description   string            `yaml:"description"`
 	Sources       map[string]Source `yaml:"sources"`
 	SetupScript   Script            `yaml:"setup"`
+	RunMain       bool              `yaml:"run-main"`
 	MainScript    Script            `yaml:"main"`
+	RunCleanup    bool              `yaml:"run-cleanup"`
 	CleanupScript Script            `yaml:"cleanup"`
 }
 

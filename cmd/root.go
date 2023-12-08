@@ -26,6 +26,8 @@ var FileToConvert string
 var CurlMethod string
 var FilterDir string
 var DeploymentScriptDir string
+var RunCleanup bool
+var RunMain bool
 var GenerateTestDir string
 var FilterDirActual string
 var TranslationDir string
