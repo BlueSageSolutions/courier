@@ -473,14 +473,18 @@ func (deploymentScript DeploymentScript) Execute() (DeploymentScriptResult, erro
 	}
 
 	// We don't exit here - we need to try to cleanup first
-	outputs, err = deploymentScript.MainScript.Execute("main", deploymentScript, outputs)
-	if err != nil {
-		util.GetLogger().Error(deploymentScript.Name, zap.Error(err))
+	if deploymentScript.RunMain {
+		outputs, err = deploymentScript.MainScript.Execute("main", deploymentScript, outputs)
+		if err != nil {
+			util.GetLogger().Error(deploymentScript.Name, zap.Error(err))
+		}
 	}
 
-	outputs, err = deploymentScript.CleanupScript.Execute("cleanup", deploymentScript, outputs)
-	if err != nil {
-		return outputs, err
+	if deploymentScript.RunCleanup {
+		outputs, err = deploymentScript.CleanupScript.Execute("cleanup", deploymentScript, outputs)
+		if err != nil {
+			return outputs, err
+		}
 	}
 	return outputs, err
 }

@@ -70,5 +70,5 @@ func init() {
 	rootCmd.AddCommand(deployCmd)
 	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts/exp", "Directory containing deployment scripts")
 	deployCmd.Flags().BoolVarP(&RunCleanup, "runCleanup", "c", false, "Run the cleanup script")
-	deployCmd.Flags().BoolVarP(&RunMain, "runMain", "m", true, "Run the main script")
+	deployCmd.Flags().BoolVarP(&RunMain, "runMain", "m", false, "Run the main script")
 }
