@@ -657,14 +657,17 @@ func (command Command) ExecuteNoPipe(deploymentScript DeploymentScript, outputs 
 	return cmd.String(), output, nil
 }
 
-func (command Command) SleepBefore(label string) {
-	fmt.Printf("[%s] prior to script execution: %s\n", timestamp(), label)
+func (command Command) SleepBefore(cmdString, label string) {
+	fmt.Printf("[%s] prior to execution: %s\n", timestamp(), label)
+	fmt.Printf("\tcommand to execution: %s\n", cmdString)
 	fmt.Printf("\tdelay-before: %d\n\texecutable: %s\n\tcommand: %s\n\tsub-command: %s\n\tmessage: %s\n", command.Sleep.Before, command.Executable, command.Name, command.SubCommand, command.Sleep.BeforeMessage)
 	time.Sleep(time.Duration(command.Sleep.Before) * time.Second)
 }
 
-func (command Command) SleepAfter(label string) {
-	fmt.Printf("[%s] after to script execution: %s\n", timestamp(), label)
+func (command Command) SleepAfter(cmdString, label string, message json.RawMessage) {
+	fmt.Printf("[%s] after to execution: %s\n", timestamp(), label)
+	fmt.Printf("\tcommand executed: %s\n", cmdString)
+	fmt.Printf("\tresults: %s\n", string(message))
 	fmt.Printf("\tdelay-after: %d\n\texecutable: %s\n\tcommand: %s\n\tsub-command: %s\n\tmessage: %s\n", command.Sleep.After, command.Executable, command.Name, command.SubCommand, command.Sleep.AfterMessage)
 	time.Sleep(time.Duration(command.Sleep.After) * time.Second)
 }
@@ -673,15 +676,20 @@ func (command Command) Execute(deploymentScript DeploymentScript, outputs Deploy
 	var commandLine string
 	var output json.RawMessage
 	var err error
-	command.SleepBefore(deploymentScript.Name)
+	theCmd, err := command.BuildCmd(deploymentScript, outputs)
+	if err != nil {
+		return "", EmptyResult(), err
+	}
+
+	command.SleepBefore(theCmd.String(), deploymentScript.Name)
 
 	if len(command.Source) > 0 {
 		commandLine, output, err = command.ExecuteCatPipe(deploymentScript, outputs)
-		command.SleepAfter(deploymentScript.Name)
+		command.SleepAfter(commandLine, deploymentScript.Name, output)
 		return commandLine, output, err
 	}
 	commandLine, output, err = command.ExecuteNoPipe(deploymentScript, outputs)
-	command.SleepAfter(deploymentScript.Name)
+	command.SleepAfter(commandLine, deploymentScript.Name, output)
 	return commandLine, output, err
 }
 

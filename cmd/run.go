@@ -49,7 +49,11 @@ func runDeploymentScripts() {
 	os.Setenv("ENABLE_CLOUD_WATCH", "false")
 	os.Setenv("ENABLE_HEC", "false")
 
-	fmt.Printf("directory: %s\n", DeploymentScriptDir)
+	fmt.Printf("### arguments:\n\tdirectory: %s\n", DeploymentScriptDir)
+	fmt.Printf("\trun main: %v\n", RunMain)
+	fmt.Printf("\trun cleanup: %v\n", RunCleanup)
+	fmt.Println("###")
+
 	for _, scriptList := range *deploymentScripts {
 		for scriptIndex, script := range scriptList.DeploymentScripts {
 			script.RunCleanup = RunCleanup
@@ -68,7 +72,7 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "deploymentScripts", "s", "./scripts/exp", "Directory containing deployment scripts")
-	deployCmd.Flags().BoolVarP(&RunCleanup, "runCleanup", "c", false, "Run the cleanup script")
-	deployCmd.Flags().BoolVarP(&RunMain, "runMain", "m", false, "Run the main script")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/exp", "Directory containing deployment scripts")
+	deployCmd.Flags().BoolVarP(&RunCleanup, "cleanup", "c", false, "Run the cleanup script")
+	deployCmd.Flags().BoolVarP(&RunMain, "main", "m", false, "Run the main script")
 }
