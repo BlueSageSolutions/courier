@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -729,8 +730,13 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 
 func (deploymentScripts DeploymentScripts) Execute() DeploymentScriptSuiteResults {
 	g, _ := errgroup.WithContext(context.Background())
-	results := make(DeploymentScriptSuiteResults, 0)
+
+	// Mutex to protect concurrent access to the results map
+	var mutex sync.Mutex
+
+	results := make(DeploymentScriptSuiteResults)
 	for key := range deploymentScripts {
+		// It's important to copy the loop variable when using it in a goroutine
 		deploymentScript := deploymentScripts[key]
 		name := key
 		g.Go(func() error {
@@ -738,7 +744,11 @@ func (deploymentScripts DeploymentScripts) Execute() DeploymentScriptSuiteResult
 			if errors != nil {
 				util.GetLogger().Info(fmt.Sprintf("errors: %+v", zap.Any("errors", errors)))
 			}
+
+			// Use mutex to protect writing to the results map
+			mutex.Lock()
 			results[name] = deployed
+			mutex.Unlock()
 			return nil
 		})
 	}

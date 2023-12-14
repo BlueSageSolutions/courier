@@ -120,6 +120,10 @@
   setup:
     - executable: base64
       source: cloudquery-config
+    - command: sso
+      sub-command: login
+      sleep:
+        after: 10
     - command: sts
       sub-command: get-caller-identity
   main:
