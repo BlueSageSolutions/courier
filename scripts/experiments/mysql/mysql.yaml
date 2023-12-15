@@ -1,0 +1,13 @@
+- script: mysql
+  sources:
+  setup:
+    - command: sts
+      sub-command: get-caller-identity
+  main:
+  # secretsmanager get-secret-value --secret-id
+    - description: get the database credentials
+      command: secretsmanager
+      sub-command: get-secret-value
+      arguments:
+        name: secret-id
+        value: bluedlp-sandbox-db
