@@ -9,5 +9,5 @@
       command: secretsmanager
       sub-command: get-secret-value
       arguments:
-        name: secret-id
-        value: bluedlp-sandbox-db
+        - name: secret-id
+          value: bluedlp-sandbox-db
