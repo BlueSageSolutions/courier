@@ -80,7 +80,7 @@ var jsonifyCmd = &cobra.Command{
 	},
 }
 
-func save(results json.RawMessage) {
+func Save(results json.RawMessage) {
 	// Create and open the output file
 	outputFile, err := os.Create(FileToConvert + ".json")
 	if err != nil {

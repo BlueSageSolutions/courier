@@ -59,7 +59,10 @@ type ScriptError struct {
 type Script []Command
 type DeploymentScriptResult []Result
 type DeploymentScriptResults map[string]DeploymentScriptResult
-type DeploymentScriptSuiteResults map[string]DeploymentScriptResults
+type DeploymentScriptSuiteResults struct {
+	Results   map[string]DeploymentScriptResults `yaml:"results"`
+	Directory string                             `yaml:"directory"`
+}
 type DeploymentScripts map[string]*DeploymentScriptList
 
 type DeploymentScriptList struct {
@@ -112,6 +115,7 @@ type Source struct {
 type DeploymentScript struct {
 	Name          string            `yaml:"script"`
 	Description   string            `yaml:"description"`
+	Path          string            `yaml:"path"`
 	Sources       map[string]Source `yaml:"sources"`
 	SetupScript   Script            `yaml:"setup"`
 	RunMain       bool              `yaml:"run-main"`
@@ -264,10 +268,12 @@ func LoadDeploymentScript(file string) (*DeploymentScriptList, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, deploymentScript := range list {
+	for index, deploymentScript := range list {
 		for key, value := range deploymentScript.Sources {
 			deploymentScript.Sources[key] = value
 		}
+		deploymentScript.Path = file
+		list[index] = deploymentScript
 	}
 	deploymentScriptList := &DeploymentScriptList{DeploymentScripts: list}
 	return deploymentScriptList, nil
@@ -417,16 +423,17 @@ func (argument Argument) Resolve(executable string, deploymentScript DeploymentS
 	return argument.Enquote(argumentValue)
 }
 
-func (deploymentScriptList DeploymentScriptList) Execute() (DeploymentScriptResults, []error) {
+func (deploymentScriptList DeploymentScriptList) Execute(file string) (DeploymentScriptResults, []error) {
 	deploymentScriptResults := make(DeploymentScriptResults)
 	var errors []error
 	for _, deploymentScript := range deploymentScriptList.DeploymentScripts {
+		fmt.Printf("script path = %s\n", deploymentScript.Path)
 		outputs, err := deploymentScript.Execute()
 		if err != nil {
 			errors = append(errors, err)
 			util.GetLogger().Error("deployment scripts failed", zap.Error(err))
 		}
-		deploymentScriptResults[deploymentScript.Name] = outputs
+		deploymentScriptResults[deploymentScript.Path] = outputs
 	}
 	return deploymentScriptResults, errors
 }
@@ -660,7 +667,7 @@ func (command Command) ExecuteNoPipe(deploymentScript DeploymentScript, outputs 
 
 func (command Command) SleepBefore(cmdString, label string) {
 	fmt.Println("----------------------------------------------------------------------")
-	fmt.Printf("[%s] prior to executing a command in the script: %s\n", timestamp(), label)
+	fmt.Printf("[%s] prior to executing a command in the script: %s\n", Timestamp(), label)
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("\tdelay-before: %d\n", command.Sleep.Before)
 	fmt.Printf("\tcommand to execute: %s\n", cmdString)
@@ -673,7 +680,7 @@ func (command Command) SleepBefore(cmdString, label string) {
 
 func (command Command) SleepAfter(cmdString, label string, message json.RawMessage) {
 	fmt.Println("----------------------------------------------------------------------")
-	fmt.Printf("[%s] after executing a command in the script: %s\n", timestamp(), label)
+	fmt.Printf("[%s] after executing a command in the script: %s\n", Timestamp(), label)
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("\tcommand executed: %s\n", cmdString)
 	fmt.Printf("\tdelay-after: %d\n", command.Sleep.After)
@@ -693,15 +700,15 @@ func (command Command) Execute(deploymentScript DeploymentScript, outputs Deploy
 		return "", EmptyResult(), err
 	}
 
-	command.SleepBefore(theCmd.String(), deploymentScript.Name)
+	command.SleepBefore(theCmd.String(), deploymentScript.Path)
 
 	if len(command.Source) > 0 {
 		commandLine, output, err = command.ExecuteCatPipe(deploymentScript, outputs)
-		command.SleepAfter(commandLine, deploymentScript.Name, output)
+		command.SleepAfter(commandLine, deploymentScript.Path, output)
 		return commandLine, output, err
 	}
 	commandLine, output, err = command.ExecuteNoPipe(deploymentScript, outputs)
-	command.SleepAfter(commandLine, deploymentScript.Name, output)
+	command.SleepAfter(commandLine, deploymentScript.Path, output)
 	return commandLine, output, err
 }
 
@@ -728,26 +735,26 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 	return outputs, nil
 }
 
-func (deploymentScripts DeploymentScripts) Execute() DeploymentScriptSuiteResults {
+func (deploymentScripts DeploymentScripts) Execute() *DeploymentScriptSuiteResults {
 	g, _ := errgroup.WithContext(context.Background())
 
 	// Mutex to protect concurrent access to the results map
 	var mutex sync.Mutex
-
-	results := make(DeploymentScriptSuiteResults)
+	var results DeploymentScriptSuiteResults
+	results.Results = make(map[string]DeploymentScriptResults)
 	for key := range deploymentScripts {
 		// It's important to copy the loop variable when using it in a goroutine
 		deploymentScript := deploymentScripts[key]
 		name := key
 		g.Go(func() error {
-			deployed, errors := deploymentScript.Execute()
+			deployed, errors := deploymentScript.Execute(name)
 			if errors != nil {
 				util.GetLogger().Info(fmt.Sprintf("errors: %+v", zap.Any("errors", errors)))
 			}
 
 			// Use mutex to protect writing to the results map
 			mutex.Lock()
-			results[name] = deployed
+			results.Results[name] = deployed
 			mutex.Unlock()
 			return nil
 		})
@@ -755,7 +762,7 @@ func (deploymentScripts DeploymentScripts) Execute() DeploymentScriptSuiteResult
 	if err := g.Wait(); err != nil {
 		return nil
 	}
-	return results
+	return &results
 }
 
 func writeCode(file *os.File, label, value string) error {
@@ -817,16 +824,43 @@ func (deploymentScript DeploymentScript) AsMarkdown(file *os.File) error {
 	return writeCodeBlock(file, "yaml", "Executed", string(markdown))
 }
 
-func (resultResults DeploymentScriptResults) AsMarkdown(file *os.File) error {
+func (resultResults DeploymentScriptResults) AsTocEntry(toc *os.File, label, absolutePath, relativePath string) error {
+	pieces := strings.Split(absolutePath, relativePath)
+	if pieces == nil {
+		return nil
+	}
+	pieces = strings.Split(pieces[1], string(filepath.Separator))
+	if pieces == nil {
+		return nil
+	}
+	nameEntry := pieces[len(pieces)-1]
+	if len(label) == 0 {
+		label = nameEntry
+	}
+	_, err := toc.WriteString(fmt.Sprintf("[%s](./%s)\n\n", label, nameEntry))
+	return err
+}
+
+func (resultResults DeploymentScriptResults) AsMarkdown(relativePath, absolutePath string, toc *os.File) error {
 	for key, deploymentScriptResult := range resultResults {
-		err := writeCode(file, "Executing", key)
+		outputFilename := strings.ReplaceAll(key, ".yaml", "")
+		outputFilename = GetReportLocation(absolutePath, outputFilename, "results.md")
+		output, err := os.OpenFile(outputFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
-		err = deploymentScriptResult.AsMarkdown(file)
+
+		defer output.Close()
+		err = writeCode(output, "Executing", key)
 		if err != nil {
 			return err
 		}
+		err = deploymentScriptResult.AsMarkdown(output)
+		if err != nil {
+			return err
+		}
+		output.Close()
+		resultResults.AsTocEntry(toc, "", outputFilename, relativePath)
 	}
 	return nil
 }
@@ -841,31 +875,56 @@ func (deploymentScriptResult DeploymentScriptResult) AsMarkdown(file *os.File) e
 	return nil
 }
 
-func (deploymentScriptSuiteResults DeploymentScriptSuiteResults) AsMarkdown(deploymentScripts DeploymentScripts, file *os.File) error {
-	for key, deploymentScriptResults := range deploymentScriptSuiteResults {
-		_, err := file.WriteString(fmt.Sprintf("The results of: `%s`\n\n", key))
-		if err != nil {
-			return err
-		}
-		err = deploymentScriptResults.AsMarkdown(file)
-		if err != nil {
-			return err
-		}
+func GetReportLocation(path, originalName, newExtension string) string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return filepath.Join(path, originalName)
+	}
+	name := strings.Replace(originalName, pwd, "", 1)
+	name = strings.ReplaceAll(name, string(filepath.Separator), "_")
+	return fmt.Sprintf("%s.%s", filepath.Join(path, name), newExtension)
+}
+
+func (deploymentScriptSuiteResults DeploymentScriptSuiteResults) AsMarkdown(deploymentScripts DeploymentScripts, relativePath, absolutePath string, toc *os.File) error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	for key, deploymentScriptResults := range deploymentScriptSuiteResults.Results {
 		deploymentScriptList, ok := deploymentScripts[key]
 		if ok {
 			for _, deploymentScript := range deploymentScriptList.DeploymentScripts {
-				err = deploymentScript.AsMarkdown(file)
+				deploymentScriptResults.AsTocEntry(toc,
+					strings.ReplaceAll(deploymentScript.Path, pwd, ""),
+					GetReportLocation(absolutePath, deploymentScript.Path, "dump.md"),
+					relativePath)
+
+				output, err := os.OpenFile(GetReportLocation(absolutePath,
+					deploymentScript.Path, "dump.md"),
+					os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+					0644)
 				if err != nil {
 					return err
 				}
+
+				defer output.Close()
+
+				err = deploymentScript.AsMarkdown(output)
+				if err != nil {
+					return err
+				}
+				output.Close()
+			}
+			err := deploymentScriptResults.AsMarkdown(relativePath, absolutePath, toc)
+			if err != nil {
+				return err
 			}
 		}
-
 	}
 	return nil
 }
 
-func timestamp() string {
+func Timestamp() string {
 	t := time.Now()
 	formatted := fmt.Sprintf("%d-%02d-%02d.%02d-%02d-%02d",
 		t.Year(), t.Month(), t.Day(),
@@ -873,24 +932,19 @@ func timestamp() string {
 	return formatted
 }
 
-func (results DeploymentScriptSuiteResults) Publish(path string, deploymentScripts DeploymentScripts) (string, error) {
-	folder := fmt.Sprintf("%s/deployed-at-%s", path, timestamp())
-	err := os.MkdirAll(folder, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-	publishedFile := fmt.Sprintf("%s/README.md", folder)
-	f, err := os.OpenFile(publishedFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+func (results DeploymentScriptSuiteResults) Publish(relativePath string, deploymentScripts DeploymentScripts) (string, error) {
+	publishedFile := fmt.Sprintf("%s/README.md", results.Directory)
+	tableOfContents, err := os.OpenFile(publishedFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return publishedFile, err
 	}
 
-	defer f.Close()
-	_, err = f.WriteString("# Executed\n\n")
+	defer tableOfContents.Close()
+	_, err = tableOfContents.WriteString("# Executed\n\n")
 	if err != nil {
 		return publishedFile, err
 	}
-	err = results.AsMarkdown(deploymentScripts, f)
+	err = results.AsMarkdown(deploymentScripts, relativePath, results.Directory, tableOfContents)
 	if err != nil {
 		return publishedFile, err
 	}

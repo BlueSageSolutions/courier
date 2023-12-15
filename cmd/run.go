@@ -15,20 +15,19 @@ var deployCmd = &cobra.Command{
 	Short: "Run a series of deployment scriptss.",
 	Long:  `Run a series of deployment scriptss`,
 	Run: func(cmd *cobra.Command, args []string) {
-		DeploymentScriptDir = fixDots(DeploymentScriptDir)
 		runDeploymentScripts()
 	},
 }
 
-func loadDeploymentScripts() (*commander.DeploymentScripts, error) {
-	fileInfo, err := os.Stat(DeploymentScriptDir)
+func loadDeploymentScripts(scriptLocation string) (*commander.DeploymentScripts, error) {
+	fileInfo, err := os.Stat(scriptLocation)
 	if err != nil {
 		util.GetLogger().Error("Not a directory", zap.Error(err))
 		return nil, err
 	}
-	path := DeploymentScriptDir
+	path := scriptLocation
 	if fileInfo.IsDir() {
-		path = fmt.Sprintf("%s/.", DeploymentScriptDir)
+		path = fmt.Sprintf("%s/.", scriptLocation)
 	}
 	deploymentScripts, err := commander.LoadDeploymentScripts(path)
 	if err != nil {
@@ -39,7 +38,8 @@ func loadDeploymentScripts() (*commander.DeploymentScripts, error) {
 }
 
 func runDeploymentScripts() {
-	deploymentScripts, err := loadDeploymentScripts()
+	relativePath, absolutePath := fixDots(DeploymentScriptDir)
+	deploymentScripts, err := loadDeploymentScripts(absolutePath)
 	if err != nil {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
 		os.Exit(1)
@@ -49,7 +49,7 @@ func runDeploymentScripts() {
 	os.Setenv("ENABLE_CLOUD_WATCH", "false")
 	os.Setenv("ENABLE_HEC", "false")
 
-	fmt.Printf("### arguments:\n\tdirectory: %s\n", DeploymentScriptDir)
+	fmt.Printf("### arguments:\n\tdirectory: %s\n", absolutePath)
 	fmt.Printf("\trun main: %v\n", RunMain)
 	fmt.Printf("\trun cleanup: %v\n", RunCleanup)
 	fmt.Println("###")
@@ -62,7 +62,14 @@ func runDeploymentScripts() {
 		}
 	}
 	results := deploymentScripts.Execute()
-	_, err = results.Publish(DeploymentScriptDir, *deploymentScripts)
+
+	results.Directory = fmt.Sprintf("%s/deployed-at-%s", absolutePath, commander.Timestamp())
+
+	err = os.MkdirAll(results.Directory, os.ModePerm)
+	if err != nil {
+		os.Exit(1)
+	}
+	_, err = results.Publish(relativePath, *deploymentScripts)
 	if err != nil {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
 		os.Exit(1)
@@ -72,7 +79,7 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/exp", "Directory containing deployment scripts")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/bluesage-dlp", "Directory containing deployment scripts")
 	deployCmd.Flags().BoolVarP(&RunCleanup, "cleanup", "c", false, "Run the cleanup script")
 	deployCmd.Flags().BoolVarP(&RunMain, "main", "m", false, "Run the main script")
 }

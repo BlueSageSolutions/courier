@@ -7,16 +7,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func fixDots(path string) string {
+func fixDots(path string) (string, string) {
 	if strings.HasPrefix(path, "./") {
+		raw := strings.Replace(path, "./", "", 1)
 		pwd, err := os.Getwd()
 		if err != nil {
 			panic(path)
 		}
 		path = strings.Replace(path, "./", pwd+"/", 1)
-		return path
+		return raw, path
 	}
-	return path
+	return path, path
 }
 
 var CurlUrl string

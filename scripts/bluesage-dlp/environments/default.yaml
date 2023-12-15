@@ -1,0 +1,5 @@
+- script: default
+  sources:
+  setup:
+    - command: sts
+      sub-command: get-caller-identity
