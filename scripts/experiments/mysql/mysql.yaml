@@ -1,5 +1,11 @@
 - script: mysql
   sources:
+    test-connection:
+      data: |+
+        SELECT 1;
+    create-schema:
+      data: |+
+        CREATE DATABASE <REPLACE_CLIENT>_<REPLACE_ENVIRONMENT> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     mysql-config:
       data: |+
         [client]
@@ -17,7 +23,7 @@
       sub-command: get-secret-value
       arguments:
         - name: secret-id
-          value: bluedlp-sandbox-db
+          value: bluedlp-lower-db
     - description: parse the secret string - step-1
       executable: jq
       sub-command: -r
@@ -58,11 +64,20 @@
           replace-with: mysql:main:step-2
     - description: test connection
       executable: mysql
+      source: test-connection
       arguments:
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/_mysql-config.json
-        - name: e
-          style: short
-          value: "SELECT 1;"
-
+    - description: create schema
+      executable: mysql
+      source: create-schema
+      replacements:
+        - match: <REPLACE_CLIENT>
+          replace-with: __CLIENT__
+        - match: <REPLACE_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/_mysql-config.json

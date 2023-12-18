@@ -83,18 +83,19 @@ func runDeploymentScripts() {
 	os.Setenv("ENABLE_HEC", "false")
 
 	fmt.Printf("### arguments:\n\tdirectory: %s\n", absolutePath)
-	fmt.Printf("\trun main: %v\n", RunMain)
-	fmt.Printf("\trun cleanup: %v\n", RunCleanup)
+	fmt.Printf("\tdry run: %v\n", DryRun)
+	fmt.Printf("\tdestroy: %v\n", Destroy)
 	fmt.Println("###")
 
 	for _, scriptList := range *deploymentScripts {
 		for scriptIndex, script := range scriptList.DeploymentScripts {
-			script.RunCleanup = RunCleanup
-			script.RunMain = RunMain
+			script.Destroy = Destroy
+			script.DryRun = DryRun
 			scriptList.DeploymentScripts[scriptIndex] = script
 		}
 	}
-	results := deploymentScripts.Execute()
+	executionContext := &commander.ExecutionContext{Client: Client, Environment: Environment}
+	results := deploymentScripts.Execute(executionContext)
 
 	results.Directory = fmt.Sprintf("%s/deployed-at-%s", absolutePath, commander.Timestamp())
 
@@ -115,8 +116,10 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/experiments/mysql", "Directory containing deployment scripts")
-	deployCmd.Flags().BoolVarP(&RunCleanup, "cleanup", "c", true, "Run the cleanup script")
-	deployCmd.Flags().BoolVarP(&CleanTmp, "tmp", "t", false, "Clean /tmp after execution")
-	deployCmd.Flags().BoolVarP(&RunMain, "main", "m", true, "Run the main script")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scriptdirectory", "s", "./scripts/experiments/mysql", "Directory containing deployment scripts")
+	deployCmd.Flags().StringVarP(&Client, "client", "c", "testclient", "Name of client")
+	deployCmd.Flags().StringVarP(&Environment, "environment", "e", "dev", "Type of environment")
+	deployCmd.Flags().BoolVarP(&Destroy, "destroy", "z", false, "Run the cleanup script")
+	deployCmd.Flags().BoolVarP(&CleanTmp, "cleantmp", "t", false, "Clean /tmp after execution")
+	deployCmd.Flags().BoolVarP(&DryRun, "dry-run", "d", false, "Dry run")
 }

@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	CLIENT_KEY                      string = "__CLIENT__"
+	ENVIRONMENT_KEY                 string = "__ENVIRONMENT__"
 	ARG_TYPE_JQ                     string = "jq"
 	ARG_TYPE_LITERAL                string = "literal"
 	EXECUTABLE_AWS                  string = "aws"
@@ -48,6 +50,11 @@ var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
 type OutputChannel struct {
 	Output []byte
 	Error  error
+}
+
+type ExecutionContext struct {
+	Client      string `yaml:"client"`
+	Environment string `yaml:"environment"`
 }
 
 type ResourceList []Resource
@@ -113,15 +120,16 @@ type Source struct {
 }
 
 type DeploymentScript struct {
-	Name          string            `yaml:"script"`
-	Description   string            `yaml:"description"`
-	Path          string            `yaml:"path"`
-	Sources       map[string]Source `yaml:"sources"`
-	SetupScript   Script            `yaml:"setup"`
-	RunMain       bool              `yaml:"run-main"`
-	MainScript    Script            `yaml:"main"`
-	RunCleanup    bool              `yaml:"run-cleanup"`
-	CleanupScript Script            `yaml:"cleanup"`
+	Name             string            `yaml:"script"`
+	Description      string            `yaml:"description"`
+	ExecutionContext *ExecutionContext `yaml:"execution-context"`
+	Path             string            `yaml:"path"`
+	Sources          map[string]Source `yaml:"sources"`
+	SetupScript      Script            `yaml:"setup"`
+	DryRun           bool              `yaml:"run-main"`
+	MainScript       Script            `yaml:"main"`
+	Destroy          bool              `yaml:"run-cleanup"`
+	CleanupScript    Script            `yaml:"cleanup"`
 }
 
 type Result struct {
@@ -340,8 +348,16 @@ func (command Command) WriteInterpolatedSource(source, interpolated string) (str
 
 func (command Command) InterpolateSource(deploymentScript DeploymentScript, source string, outputs DeploymentScriptResult) string {
 	raw := ResolveSourceFromFile(deploymentScript, source, outputs)
+	var replaceWith string
 	for _, replacement := range command.Replacements {
-		replaceWith := ResolveSourceFromFile(deploymentScript, replacement.ReplaceWith, outputs)
+		switch replacement.ReplaceWith {
+		case CLIENT_KEY:
+			replaceWith = deploymentScript.ExecutionContext.Client
+		case ENVIRONMENT_KEY:
+			replaceWith = deploymentScript.ExecutionContext.Environment
+		default:
+			replaceWith = ResolveSourceFromFile(deploymentScript, replacement.ReplaceWith, outputs)
+		}
 		replaceWith = strings.TrimSpace(replaceWith)
 		raw = strings.ReplaceAll(raw, replacement.Match, replaceWith)
 	}
@@ -423,11 +439,12 @@ func (argument Argument) Resolve(executable string, deploymentScript DeploymentS
 	return argument.Enquote(argumentValue)
 }
 
-func (deploymentScriptList DeploymentScriptList) Execute(file string) (DeploymentScriptResults, []error) {
+func (deploymentScriptList DeploymentScriptList) Execute(exe *ExecutionContext, file string) (DeploymentScriptResults, []error) {
 	deploymentScriptResults := make(DeploymentScriptResults)
 	var errors []error
 	for _, deploymentScript := range deploymentScriptList.DeploymentScripts {
 		fmt.Printf("script path = %s\n", deploymentScript.Path)
+		deploymentScript.ExecutionContext = exe
 		outputs, err := deploymentScript.Execute()
 		if err != nil {
 			errors = append(errors, err)
@@ -481,14 +498,14 @@ func (deploymentScript DeploymentScript) Execute() (DeploymentScriptResult, erro
 	}
 
 	// We don't exit here - we need to try to cleanup first
-	if deploymentScript.RunMain {
+	if !deploymentScript.DryRun {
 		outputs, err = deploymentScript.MainScript.Execute("main", deploymentScript, outputs)
 		if err != nil {
 			util.GetLogger().Error(deploymentScript.Name, zap.Error(err))
 		}
 	}
 
-	if deploymentScript.RunCleanup {
+	if deploymentScript.Destroy {
 		outputs, err = deploymentScript.CleanupScript.Execute("cleanup", deploymentScript, outputs)
 		if err != nil {
 			return outputs, err
@@ -735,7 +752,7 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 	return outputs, nil
 }
 
-func (deploymentScripts DeploymentScripts) Execute() *DeploymentScriptSuiteResults {
+func (deploymentScripts DeploymentScripts) Execute(exe *ExecutionContext) *DeploymentScriptSuiteResults {
 	g, _ := errgroup.WithContext(context.Background())
 
 	// Mutex to protect concurrent access to the results map
@@ -747,7 +764,7 @@ func (deploymentScripts DeploymentScripts) Execute() *DeploymentScriptSuiteResul
 		deploymentScript := deploymentScripts[key]
 		name := key
 		g.Go(func() error {
-			deployed, errors := deploymentScript.Execute(name)
+			deployed, errors := deploymentScript.Execute(exe, name)
 			if errors != nil {
 				util.GetLogger().Info(fmt.Sprintf("errors: %+v", zap.Any("errors", errors)))
 			}
