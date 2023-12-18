@@ -28,6 +28,7 @@ var CurlMethod string
 var FilterDir string
 var DeploymentScriptDir string
 var RunCleanup bool
+var CleanTmp bool
 var RunMain bool
 var GenerateTestDir string
 var FilterDirActual string

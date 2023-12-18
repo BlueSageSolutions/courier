@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/BlueSageSolutions/courier/pkg/commander"
 	"github.com/BlueSageSolutions/courier/pkg/util"
@@ -35,6 +37,37 @@ func loadDeploymentScripts(scriptLocation string) (*commander.DeploymentScripts,
 		return nil, err
 	}
 	return deploymentScripts, nil
+}
+
+func deleteJSONFiles(directory string) error {
+	// Read the directory
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		return err
+	}
+
+	// Loop through the files in the directory
+	for _, file := range files {
+		if file.IsDir() {
+			// Skip directories
+			continue
+		}
+
+		// Check if the file has a ".json" extension
+		if strings.HasSuffix(file.Name(), ".json") {
+			// Construct the full file path
+			filePath := filepath.Join(directory, file.Name())
+
+			// Delete the JSON file
+			err := os.Remove(filePath)
+			if err != nil {
+				fmt.Printf("Error deleting %s: %v\n", filePath, err)
+			} else {
+				fmt.Printf("Deleted %s\n", filePath)
+			}
+		}
+	}
+	return nil
 }
 
 func runDeploymentScripts() {
@@ -74,12 +107,16 @@ func runDeploymentScripts() {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
 		os.Exit(1)
 	}
+	if CleanTmp {
+		deleteJSONFiles("/tmp")
+	}
 
 }
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/bluesage-dlp", "Directory containing deployment scripts")
-	deployCmd.Flags().BoolVarP(&RunCleanup, "cleanup", "c", false, "Run the cleanup script")
-	deployCmd.Flags().BoolVarP(&RunMain, "main", "m", false, "Run the main script")
+	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scripts", "s", "./scripts/experiments/mysql", "Directory containing deployment scripts")
+	deployCmd.Flags().BoolVarP(&RunCleanup, "cleanup", "c", true, "Run the cleanup script")
+	deployCmd.Flags().BoolVarP(&CleanTmp, "tmp", "t", false, "Clean /tmp after execution")
+	deployCmd.Flags().BoolVarP(&RunMain, "main", "m", true, "Run the main script")
 }

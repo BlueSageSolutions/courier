@@ -1,5 +1,11 @@
 - script: mysql
   sources:
+    mysql-config:
+      data: |+
+        [client]
+        user = "<REPLACE_USER>"
+        password = "<REPLACE_PASSWORD>"
+        host = "<REPLACE_HOST>"
   setup:
     - command: sts
       sub-command: get-caller-identity
@@ -7,7 +13,56 @@
   # secretsmanager get-secret-value --secret-id
     - description: get the database credentials
       command: secretsmanager
+      sensitive: true
       sub-command: get-secret-value
       arguments:
         - name: secret-id
           value: bluedlp-sandbox-db
+    - description: parse the secret string - step-1
+      executable: jq
+      sub-command: -r
+      command: .SecretString
+      sensitive: true
+      source: mysql:main:step-0
+    - description: parse the host
+      executable: jq
+      sub-command: -r
+      command: .host
+      source: mysql:main:step-1
+    - description: parse the username
+      executable: jq
+      sub-command: -r
+      command: .username
+      source: mysql:main:step-1
+    - description: parse the port
+      executable: jq
+      sub-command: -r
+      command: .port
+      source: mysql:main:step-1
+    - description: parse the password
+      executable: jq
+      sensitive: true
+      sub-command: -r
+      command: .password
+      source: mysql:main:step-1
+    - description: build mysql config file
+      executable: cat
+      sensitive: true
+      source: mysql-config
+      replacements:
+        - match: <REPLACE_USER>
+          replace-with: mysql:main:step-3
+        - match: <REPLACE_PASSWORD>
+          replace-with: mysql:main:step-5
+        - match: <REPLACE_HOST>
+          replace-with: mysql:main:step-2
+    - description: test connection
+      executable: mysql
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/_mysql-config.json
+        - name: e
+          style: short
+          value: "SELECT 1;"
+
