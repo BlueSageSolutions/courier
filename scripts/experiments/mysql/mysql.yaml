@@ -1,11 +1,14 @@
 - script: mysql
   sources:
     test-connection:
-      data: |+
+      data: >
         SELECT 1;
     create-schema:
-      data: |+
+      data: >
         CREATE DATABASE <REPLACE_CLIENT>_<REPLACE_ENVIRONMENT> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    drop-schema:
+      data: >
+        DROP DATABASE <REPLACE_CLIENT>_<REPLACE_ENVIRONMENT>;
     mysql-config:
       data: |+
         [client]
@@ -81,3 +84,17 @@
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/_mysql-config.json
+  cleanup:
+    - description: drop schema
+      executable: mysql
+      source: drop-schema
+      replacements:
+        - match: <REPLACE_CLIENT>
+          replace-with: __CLIENT__
+        - match: <REPLACE_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/_mysql-config.json
+
