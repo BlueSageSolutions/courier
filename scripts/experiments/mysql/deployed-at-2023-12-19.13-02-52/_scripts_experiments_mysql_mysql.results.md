@@ -19,7 +19,7 @@
 
 **Command**: `/usr/local/bin/aws secretsmanager get-secret-value --secret-id bluedlp-lower-db`
 
-**Description**: ``
+**Description**: `get the database credentials`
 
 **Script Reference**: `mysql:main:step-0`
 
@@ -31,7 +31,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/mysql_main_step-0.json | /usr/local/bin/jq .SecretString -r`
 
-**Description**: ``
+**Description**: `parse the secret string - step-1`
 
 **Script Reference**: `mysql:main:step-1`
 
@@ -43,7 +43,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/mysql_main_step-1.json | /usr/local/bin/jq .host -r`
 
-**Description**: ``
+**Description**: `parse the host`
 
 **Script Reference**: `mysql:main:step-2`
 
@@ -56,7 +56,7 @@ bluedlp-lower.cluster-cs9l6nkpc8yl.us-east-1.rds.amazonaws.com
 
 **Command**: `/bin/cat /tmp/mysql_main_step-1.json | /usr/local/bin/jq .username -r`
 
-**Description**: ``
+**Description**: `parse the username`
 
 **Script Reference**: `mysql:main:step-3`
 
@@ -69,7 +69,7 @@ bluedlp_lower_admin
 
 **Command**: `/bin/cat /tmp/mysql_main_step-1.json | /usr/local/bin/jq .port -r`
 
-**Description**: ``
+**Description**: `parse the port`
 
 **Script Reference**: `mysql:main:step-4`
 
@@ -82,7 +82,7 @@ bluedlp_lower_admin
 
 **Command**: `/bin/cat /tmp/mysql_main_step-1.json | /usr/local/bin/jq .password -r`
 
-**Description**: ``
+**Description**: `parse the password`
 
 **Script Reference**: `mysql:main:step-5`
 
@@ -94,7 +94,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/_mysql-config.json | /bin/cat`
 
-**Description**: ``
+**Description**: `build mysql config file`
 
 **Script Reference**: `mysql:main:step-6`
 
@@ -106,7 +106,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/mysql.test-connection.json | /usr/local/bin/mysql --defaults-extra-file=/tmp/_mysql-config.json`
 
-**Description**: ``
+**Description**: `test connection`
 
 **Script Reference**: `mysql:main:step-7`
 
@@ -120,7 +120,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/_create-schema.json | /usr/local/bin/mysql --defaults-extra-file=/tmp/_mysql-config.json`
 
-**Description**: ``
+**Description**: `create schema`
 
 **Script Reference**: `mysql:main:step-8`
 
@@ -132,7 +132,7 @@ REDACTED
 
 **Command**: `/bin/cat /tmp/_drop-schema.json | /usr/local/bin/mysql --defaults-extra-file=/tmp/_mysql-config.json`
 
-**Description**: ``
+**Description**: `drop schema`
 
 **Script Reference**: `mysql:cleanup:step-0`
 
