@@ -765,7 +765,12 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 		if len(jsonOutput) == 0 {
 			jsonOutput = EmptyResult()
 		}
-		outputs = append(outputs, Result{Sensitive: command.Sensitive, Script: fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index), Output: jsonOutput, Command: cmd})
+		outputs = append(outputs,
+			Result{Sensitive: command.Sensitive,
+				Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+				Description: command.Description,
+				Output:      jsonOutput,
+				Command:     cmd})
 	}
 	return outputs, nil
 }
