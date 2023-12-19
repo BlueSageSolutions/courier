@@ -133,11 +133,12 @@ type DeploymentScript struct {
 }
 
 type Result struct {
-	Script    string          `yaml:"script"`
-	Sensitive bool            `yaml:"sensitive"`
-	Command   string          `yaml:"command"`
-	Output    json.RawMessage `yaml:"output"`
-	Error     string          `yaml:"error"`
+	Script      string          `yaml:"script"`
+	Sensitive   bool            `yaml:"sensitive"`
+	Command     string          `yaml:"command"`
+	Description string          `yaml:"description"`
+	Output      json.RawMessage `yaml:"output"`
+	Error       string          `yaml:"error"`
 }
 
 type Resource struct {
@@ -743,9 +744,21 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 			betterMessage, marshalErr := json.Marshal(scriptError)
 			if marshalErr != nil {
 				util.GetLogger().Error("marshalling aws error failed", zap.Error(marshalErr))
-				outputs = append(outputs, Result{Sensitive: command.Sensitive, Script: fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index), Output: jsonOutput, Command: cmd, Error: fmt.Sprintf("%s", err)})
+				outputs = append(outputs,
+					Result{Sensitive: command.Sensitive,
+						Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+						Output:      jsonOutput,
+						Command:     cmd,
+						Description: command.Description,
+						Error:       fmt.Sprintf("%s", err)})
 			} else {
-				outputs = append(outputs, Result{Sensitive: command.Sensitive, Script: fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index), Output: betterMessage, Command: cmd, Error: fmt.Sprintf("%s", err)})
+				outputs = append(outputs,
+					Result{Sensitive: command.Sensitive,
+						Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+						Output:      betterMessage,
+						Command:     cmd,
+						Description: command.Description,
+						Error:       fmt.Sprintf("%s", err)})
 			}
 			return outputs, err
 		}
@@ -808,6 +821,10 @@ func writeCodeBlock(file *os.File, encoding, label, value string) error {
 }
 func (result Result) AsMarkdown(file *os.File) error {
 	err := writeCode(file, "Command", result.Command)
+	if err != nil {
+		return err
+	}
+	err = writeCode(file, "Description", result.Description)
 	if err != nil {
 		return err
 	}
