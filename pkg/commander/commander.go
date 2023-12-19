@@ -701,7 +701,12 @@ func (command Command) SleepAfter(cmdString, label string, message json.RawMessa
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("\tcommand executed: %s\n", cmdString)
 	fmt.Printf("\tdelay-after: %d\n", command.Sleep.After)
-	fmt.Printf("\tresults:\n%s\n", string(message))
+	if command.Sensitive {
+		fmt.Print("\tresults:\nREDACTED\n")
+	} else {
+		fmt.Printf("\tresults:\n%s\n", string(message))
+	}
+
 	if len(command.Sleep.AfterMessage) > 0 {
 		fmt.Printf("\tmessage: %s\n", command.Sleep.AfterMessage)
 	}
