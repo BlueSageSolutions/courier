@@ -105,22 +105,12 @@
 # /clients/client1/test/client_test
 
 # All database user credentials are also persisted as groovy files on the host. Eventually, these will be pulled from AWS Parameter Store at runtime.
+
 - script: users
   sources:
-    secrets:
-      transformations:
-        - name: generated-password
-          type: random
-          length: 12
     test-connection:
       data: >
         SELECT 1;
-    create-schema:
-      data: >
-        CREATE DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    drop-schema:
-      data: >
-        DROP DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
     create-user:
       data: >
         CREATE USER '<REPLACE_USERNAME>'@% IDENTIFIED BY '<REPLACE_PASSWORD>';
@@ -130,104 +120,16 @@
     grant-superuser-privileges:
       data: >
         GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO 'dlp_fly'@'%';
-    mysql-config:
-      data: |+
-        [client]
-        user = "<REPLACE_USER>"
-        password = "<REPLACE_PASSWORD>"
-        host = "<REPLACE_HOST>"
   setup:
     - command: sts
       sub-command: get-caller-identity
     - description: get the database credentials
-      command: secretsmanager
-      sensitive: true
-      sub-command: get-secret-value
+      command: ssm
+      sub-command: get-parameter
       arguments:
-        - name: secret-id
-          value: bluedlp-lower-db
-    - description: parse the secret string
-      executable: jq
-      sub-command: -r
-      command: .SecretString
-      sensitive: true
-      source: users:setup:step-1
-    - description: parse the host
-      executable: jq
-      sub-command: -r
-      command: .host
-      source: users:setup:step-2
-    - description: parse the username
-      executable: jq
-      sub-command: -r
-      command: .username
-      source: users:setup:step-2
-    - description: parse the port
-      executable: jq
-      sub-command: -r
-      command: .port
-      source: users:setup:step-2
-    - description: parse the password
-      executable: jq
-      sensitive: true
-      sub-command: -r
-      command: .password
-      source: users:setup:step-2
-    - description: build mysql config file
-      executable: cat
-      sensitive: true
-      source: mysql-config
-      replacements:
-        - match: <REPLACE_USER>
-          replace-with: users:setup:step-4
-        - match: <REPLACE_PASSWORD>
-          replace-with: users:setup:step-6
-        - match: <REPLACE_HOST>
-          replace-with: users:setup:step-3
-    - description: test connection
-      executable: mysql
-      source: test-connection
-      arguments:
-        - name: use-config
-          style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
-    - description: generate password
-      executable: echo
-      arguments:
-        - name: password
-          style: plain
-          source: secrets
-          interpolation:
-            name: password
-            type: jq
-            parameters:
-              - name: password
-                value: .generated-password
+        - name: name
+          value: "/systems/mysql/lower/defaults-extra-file"
+        - name: with-decryption
   main:
-  # secretsmanager get-secret-value --secret-id
-    - description: create schema
-      executable: mysql
-      source: create-schema
-      replacements:
-        - match: <BSDLP_CLIENT>
-          replace-with: __CLIENT__
-        - match: <BSDLP_ENVIRONMENT>
-          replace-with: __ENVIRONMENT__
-      arguments:
-        - name: use-config
-          style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
   cleanup:
-    - description: drop schema
-      executable: mysql
-      source: drop-schema
-      replacements:
-        - match: <BSDLP_CLIENT>
-          replace-with: __CLIENT__
-        - match: <BSDLP_ENVIRONMENT>
-          replace-with: __ENVIRONMENT__
-      arguments:
-        - name: use-config
-          style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
 

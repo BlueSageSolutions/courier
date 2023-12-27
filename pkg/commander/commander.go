@@ -102,6 +102,7 @@ type Command struct {
 type Argument struct {
 	Name          string                    `yaml:"name"`
 	Description   string                    `yaml:"description"`
+	Randomize     int                       `yaml:"randomize"`
 	Value         string                    `yaml:"value"`
 	Style         string                    `yaml:"style"`
 	QuoteType     string                    `yaml:"quote-type"`
@@ -111,8 +112,9 @@ type Argument struct {
 }
 
 type Replacement struct {
-	Match       string `yaml:"match"`
-	ReplaceWith string `yaml:"replace-with"`
+	Match             string `yaml:"match"`
+	ReplaceWith       string `yaml:"replace-with"`
+	ReplaceWithRandom int    `yaml:"replace-with-random"`
 }
 
 type Source struct {
@@ -351,16 +353,25 @@ func (command Command) WriteInterpolatedSource(source, interpolated string) (str
 func (command Command) InterpolateSource(deploymentScript DeploymentScript, source string, outputs DeploymentScriptResult) string {
 	raw := ResolveSourceFromFile(deploymentScript, source, outputs)
 	var replaceWith string
+
 	for _, replacement := range command.Replacements {
-		switch replacement.ReplaceWith {
-		case CLIENT_KEY:
-			replaceWith = deploymentScript.ExecutionContext.Client
-		case ENVIRONMENT_KEY:
-			replaceWith = deploymentScript.ExecutionContext.Environment
-		default:
-			replaceWith = ResolveSourceFromFile(deploymentScript, replacement.ReplaceWith, outputs)
+		if replacement.ReplaceWithRandom > 0 {
+			var myErr error
+			replaceWith, myErr = transform.GenerateRandomString(replacement.ReplaceWithRandom)
+			if myErr != nil {
+				replaceWith = ""
+			}
+		} else {
+			switch replacement.ReplaceWith {
+			case CLIENT_KEY:
+				replaceWith = deploymentScript.ExecutionContext.Client
+			case ENVIRONMENT_KEY:
+				replaceWith = deploymentScript.ExecutionContext.Environment
+			default:
+				replaceWith = ResolveSourceFromFile(deploymentScript, replacement.ReplaceWith, outputs)
+			}
+			replaceWith = strings.TrimSpace(replaceWith)
 		}
-		replaceWith = strings.TrimSpace(replaceWith)
 		raw = strings.ReplaceAll(raw, replacement.Match, replaceWith)
 	}
 	return raw
@@ -416,6 +427,12 @@ func (argument Argument) Enquote(value string) string {
 func (argument Argument) Resolve(executable string, deploymentScript DeploymentScript, outputs DeploymentScriptResult) string {
 	if len(argument.Value) > 0 {
 		return argument.Enquote(argument.Value)
+	} else if argument.Randomize > 0 {
+		random, err := transform.GenerateRandomString(argument.Randomize)
+		if err != nil {
+			return ""
+		}
+		return argument.Enquote(random)
 	}
 	argumentValue := ""
 	source := argument.ResolveSource(deploymentScript, outputs)
