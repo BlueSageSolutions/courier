@@ -1,34 +1,34 @@
 **Executed**:
 
 ```yaml
-script: mysql
+script: create-users
 description: ""
 execution-context: null
-path: /Users/jploughman/go/src/github.com/BlueSageSolutions/courier/scripts/experiments/mysql/mysql.yaml
+path: /Users/jploughman/go/src/github.com/BlueSageSolutions/courier/scripts/bluesage-dlp/databases/create/schema.yaml
 sources:
     create-schema:
-        transformation: []
+        transformations: []
         data: |
-            CREATE DATABASE <REPLACE_CLIENT>_<REPLACE_ENVIRONMENT> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+            CREATE DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     drop-schema:
-        transformation: []
+        transformations: []
         data: |
-            DROP DATABASE <REPLACE_CLIENT>_<REPLACE_ENVIRONMENT>;
+            DROP DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
     mysql-config:
-        transformation: []
+        transformations: []
         data: |
             [client]
             user = "<REPLACE_USER>"
             password = "<REPLACE_PASSWORD>"
             host = "<REPLACE_HOST>"
     test-connection:
-        transformation: []
+        transformations: []
         data: |
             SELECT 1;
 setup:
     - executable: ""
       command: sts
-      description: ""
+      description: check suthentication status
       sensitive: false
       source: ""
       replacements: []
@@ -42,8 +42,6 @@ setup:
         after: 0
         after-message: ""
         before-message: ""
-run-main: false
-main:
     - executable: ""
       command: secretsmanager
       description: get the database credentials
@@ -70,9 +68,9 @@ main:
         before-message: ""
     - executable: jq
       command: .SecretString
-      description: parse the secret string - step-1
+      description: parse the secret string
       sensitive: true
-      source: mysql:main:step-0
+      source: create-users:setup:step-1
       replacements: []
       environment: []
       directory: ""
@@ -88,7 +86,7 @@ main:
       command: .host
       description: parse the host
       sensitive: false
-      source: mysql:main:step-1
+      source: create-users:setup:step-2
       replacements: []
       environment: []
       directory: ""
@@ -104,7 +102,7 @@ main:
       command: .username
       description: parse the username
       sensitive: false
-      source: mysql:main:step-1
+      source: create-users:setup:step-2
       replacements: []
       environment: []
       directory: ""
@@ -120,7 +118,7 @@ main:
       command: .port
       description: parse the port
       sensitive: false
-      source: mysql:main:step-1
+      source: create-users:setup:step-2
       replacements: []
       environment: []
       directory: ""
@@ -136,7 +134,7 @@ main:
       command: .password
       description: parse the password
       sensitive: true
-      source: mysql:main:step-1
+      source: create-users:setup:step-2
       replacements: []
       environment: []
       directory: ""
@@ -155,11 +153,11 @@ main:
       source: mysql-config
       replacements:
         - match: <REPLACE_USER>
-          replace-with: mysql:main:step-3
+          replace-with: create-users:setup:step-4
         - match: <REPLACE_PASSWORD>
-          replace-with: mysql:main:step-5
+          replace-with: create-users:setup:step-6
         - match: <REPLACE_HOST>
-          replace-with: mysql:main:step-2
+          replace-with: create-users:setup:step-3
       environment: []
       directory: ""
       sub-command: ""
@@ -194,15 +192,65 @@ main:
         after: 0
         after-message: ""
         before-message: ""
+    - executable: ""
+      command: ssm
+      description: stash secret in ssm parameter
+      sensitive: true
+      source: ""
+      replacements: []
+      environment: []
+      directory: ""
+      sub-command: put-parameter
+      arguments:
+        - name: name
+          description: ""
+          value: /systems/mysql/lower/defaults-extra-file
+          style: ""
+          quote-type: ""
+          source-type: ""
+          source: ""
+          interpolation: null
+        - name: type
+          description: ""
+          value: SecureString
+          style: ""
+          quote-type: ""
+          source-type: ""
+          source: ""
+          interpolation: null
+        - name: overwrite
+          description: ""
+          value: ""
+          style: ""
+          quote-type: ""
+          source-type: ""
+          source: ""
+          interpolation: null
+        - name: value
+          description: ""
+          value: ""
+          style: ""
+          quote-type: ""
+          source-type: text
+          source: create-users:setup:step-7
+          interpolation: null
+      sleep:
+        timeout: 0
+        before: 0
+        after: 0
+        after-message: ""
+        before-message: ""
+run-main: false
+main:
     - executable: mysql
       command: ""
       description: create schema
       sensitive: false
       source: create-schema
       replacements:
-        - match: <REPLACE_CLIENT>
+        - match: <BSDLP_CLIENT>
           replace-with: __CLIENT__
-        - match: <REPLACE_ENVIRONMENT>
+        - match: <BSDLP_ENVIRONMENT>
           replace-with: __ENVIRONMENT__
       environment: []
       directory: ""
@@ -224,15 +272,39 @@ main:
         before-message: ""
 run-cleanup: true
 cleanup:
+    - executable: ""
+      command: ssm
+      description: delete parameter
+      sensitive: false
+      source: ""
+      replacements: []
+      environment: []
+      directory: ""
+      sub-command: delete-parameter
+      arguments:
+        - name: name
+          description: ""
+          value: /systems/mysql/lower/defaults-extra-file
+          style: ""
+          quote-type: ""
+          source-type: ""
+          source: ""
+          interpolation: null
+      sleep:
+        timeout: 0
+        before: 0
+        after: 0
+        after-message: ""
+        before-message: ""
     - executable: mysql
       command: ""
       description: drop schema
       sensitive: false
       source: drop-schema
       replacements:
-        - match: <REPLACE_CLIENT>
+        - match: <BSDLP_CLIENT>
           replace-with: __CLIENT__
-        - match: <REPLACE_ENVIRONMENT>
+        - match: <BSDLP_ENVIRONMENT>
           replace-with: __ENVIRONMENT__
       environment: []
       directory: ""

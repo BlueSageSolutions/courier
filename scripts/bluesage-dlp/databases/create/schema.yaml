@@ -23,43 +23,6 @@
 
 # aws ssm put-parameter --name "/clients/dev/client1_dev" --value "your_value" --type "SecureString"
 
-# Policy for Systems:
-
-# Example of lower tier access for flyway
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Effect": "Allow",
-#       "Action": [
-#         "ssm:GetParameter",
-#         "ssm:GetParameters",
-#         "ssm:GetParametersByPath"
-#       ],
-#       "Resource": "arn:aws:ssm:*:*:parameter/systems/flyway/lower/*"
-#     }
-#   ]
-# }
-# This policy allows read access to any parameter under /systems/flyway/lower/.
-
-# Policy for Clients:
-
-# {
-#   "Version": "2012-10-17",
-#   "Statement": [
-#     {
-#       "Effect": "Allow",
-#       "Action": [
-#         "ssm:GetParameter",
-#         "ssm:GetParameters",
-#         "ssm:GetParametersByPath"
-#       ],
-#       "Resource": "arn:aws:ssm:*:*:parameter/clients/client1/dev/*"
-#     }
-#   ]
-# }
-# This policy allows read access to any parameter under /clients/client1/dev/
-
 # System Credentials
 
 # Currently, the master database user and password are stored in AWS Secrets Manager using the naming convention: bluedlp-${BSDLP_TIER}-db.
@@ -70,48 +33,8 @@
 
 # e.g., bluedlp_lower_admin
 
-# We use this user to create client schemas named:
-
-# ${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT} for all the environments in that tier
-
-# e.g., client1_test, client1_dev
-
-# We create users who can access from any host named:
-
-# ${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT}@% 
-
-# e.g., client1_test, client1_dev
-
-# We grant all privileges (permissions) to each user's corresponding database:
-
-# GRANT ALL PRIVILEGES ON ${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT}.* TO '${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT}'@'%';
-
-# e.g., GRANT ALL PRIVILEGES ON client1_dev.* TO 'client1_dev'@'%';
-
-# GRANT USAGE ON *.* TO '${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT}'@'%';
-
-# e.g., GRANT USAGE ON *.* TO 'client1_dev'@'%';
-
-# We grant all privileges (permissions) to dlp_fly - which already exists - for the corresponding databases in both dev/test:
-
-# GRANT ALL PRIVILEGES ON ${BSDLP_CLIENT}_${BSDLP_ENVIRONMENT}.* TO 'dlp_fly'@'%';
-
-# e.g., GRANT ALL PRIVILEGES ON client1_dev.* TO 'dlp_fly'@'%';
-
-# These secrets will be stored in AWS Parameter Store in the BlueSageDLP account at the following coordinates:
-
-# /systems/flyway/lower/dlp_fly
-# /clients/client1/dev/client_dev
-# /clients/client1/test/client_test
-
-# All database user credentials are also persisted as groovy files on the host. Eventually, these will be pulled from AWS Parameter Store at runtime.
-- script: mysql
+- script: create-users
   sources:
-    secrets:
-      transformations:
-        - name: generated-password
-          type: random
-          length: 12
     test-connection:
       data: >
         SELECT 1;
@@ -121,15 +44,6 @@
     drop-schema:
       data: >
         DROP DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
-    create-user:
-      data: >
-        CREATE USER '<REPLACE_USERNAME>'@% IDENTIFIED BY '<REPLACE_PASSWORD>';
-    grant-user-privileges:
-      data: >
-        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>'@'%';
-    grant-superuser-privileges:
-      data: >
-        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO 'dlp_fly'@'%';
     mysql-config:
       data: |+
         [client]
@@ -137,7 +51,8 @@
         password = "<REPLACE_PASSWORD>"
         host = "<REPLACE_HOST>"
   setup:
-    - command: sts
+    - description: check suthentication status
+      command: sts
       sub-command: get-caller-identity
     - description: get the database credentials
       command: secretsmanager
@@ -151,39 +66,39 @@
       sub-command: -r
       command: .SecretString
       sensitive: true
-      source: mysql:setup:step-1
+      source: create-users:setup:step-1
     - description: parse the host
       executable: jq
       sub-command: -r
       command: .host
-      source: mysql:setup:step-2
+      source: create-users:setup:step-2
     - description: parse the username
       executable: jq
       sub-command: -r
       command: .username
-      source: mysql:setup:step-2
+      source: create-users:setup:step-2
     - description: parse the port
       executable: jq
       sub-command: -r
       command: .port
-      source: mysql:setup:step-2
+      source: create-users:setup:step-2
     - description: parse the password
       executable: jq
       sensitive: true
       sub-command: -r
       command: .password
-      source: mysql:setup:step-2
+      source: create-users:setup:step-2
     - description: build mysql config file
       executable: cat
       sensitive: true
       source: mysql-config
       replacements:
         - match: <REPLACE_USER>
-          replace-with: mysql:setup:step-4
+          replace-with: create-users:setup:step-4
         - match: <REPLACE_PASSWORD>
-          replace-with: mysql:setup:step-6
+          replace-with: create-users:setup:step-6
         - match: <REPLACE_HOST>
-          replace-with: mysql:setup:step-3
+          replace-with: create-users:setup:step-3
     - description: test connection
       executable: mysql
       source: test-connection
@@ -191,20 +106,20 @@
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/_mysql-config.json
-    - description: generate password
-      executable: echo
+    - description: stash secret in ssm parameter
+      command: ssm
+      sensitive: true
+      sub-command: put-parameter
       arguments:
-        - name: password
-          style: plain
-          source: secrets
-          interpolation:
-            name: password
-            type: jq
-            parameters:
-              - name: password
-                value: .generated-password
+        - name: name
+          value: "/systems/mysql/lower/defaults-extra-file"
+        - name: type
+          value: "SecureString"
+        - name: overwrite
+        - name: value
+          source: create-users:setup:step-7
+          source-type: text
   main:
-  # secretsmanager get-secret-value --secret-id
     - description: create schema
       executable: mysql
       source: create-schema
@@ -218,6 +133,12 @@
           style: plain
           value: --defaults-extra-file=/tmp/_mysql-config.json
   cleanup:
+    - description: delete parameter
+      command: ssm
+      sub-command: delete-parameter
+      arguments:
+        - name: name
+          value: "/systems/mysql/lower/defaults-extra-file"
     - description: drop schema
       executable: mysql
       source: drop-schema

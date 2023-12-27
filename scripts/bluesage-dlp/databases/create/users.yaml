@@ -17,11 +17,11 @@
 # Simple as possible design for effective RBAC. Secrets will be organized as follows:
 
 # /systems/system-name/tier-name/parameter-name
-# /clients/environment-name/parameter-name
+# /clients/client-name/environment-name/parameter-name
 
 # aws ssm put-parameter --name "/systems/flyway/lower/dlp_fly" --value "your_value" --type "SecureString"
 
-# aws ssm put-parameter --name "/clients/dev/client1_dev" --value "your_value" --type "SecureString"
+# aws ssm put-parameter --name "/clients/client1/dev/client1_dev" --value "your_value" --type "SecureString"
 
 # Policy for Systems:
 
@@ -105,7 +105,7 @@
 # /clients/client1/test/client_test
 
 # All database user credentials are also persisted as groovy files on the host. Eventually, these will be pulled from AWS Parameter Store at runtime.
-- script: mysql
+- script: users
   sources:
     secrets:
       transformations:
@@ -151,39 +151,39 @@
       sub-command: -r
       command: .SecretString
       sensitive: true
-      source: mysql:setup:step-1
+      source: users:setup:step-1
     - description: parse the host
       executable: jq
       sub-command: -r
       command: .host
-      source: mysql:setup:step-2
+      source: users:setup:step-2
     - description: parse the username
       executable: jq
       sub-command: -r
       command: .username
-      source: mysql:setup:step-2
+      source: users:setup:step-2
     - description: parse the port
       executable: jq
       sub-command: -r
       command: .port
-      source: mysql:setup:step-2
+      source: users:setup:step-2
     - description: parse the password
       executable: jq
       sensitive: true
       sub-command: -r
       command: .password
-      source: mysql:setup:step-2
+      source: users:setup:step-2
     - description: build mysql config file
       executable: cat
       sensitive: true
       source: mysql-config
       replacements:
         - match: <REPLACE_USER>
-          replace-with: mysql:setup:step-4
+          replace-with: users:setup:step-4
         - match: <REPLACE_PASSWORD>
-          replace-with: mysql:setup:step-6
+          replace-with: users:setup:step-6
         - match: <REPLACE_HOST>
-          replace-with: mysql:setup:step-3
+          replace-with: users:setup:step-3
     - description: test connection
       executable: mysql
       source: test-connection

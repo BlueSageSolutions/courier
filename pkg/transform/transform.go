@@ -159,7 +159,7 @@ func (payload *DataPayload) GetTransformerContextValue(key string) string {
 }
 
 func GenerateRandomString(n int) (string, error) {
-	const letters = "abcdefghijklmnopqrstuvwxyz"
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 	ret := make([]byte, n)
 	for i := 0; i < n; i++ {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))

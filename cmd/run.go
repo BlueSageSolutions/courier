@@ -71,7 +71,8 @@ func deleteJSONFiles(directory string) error {
 }
 
 func runDeploymentScripts() {
-	relativePath, absolutePath := fixDots(DeploymentScriptDir)
+	absolutePath := fixDots(DeploymentScripts)
+	reportsPath := fixDots(Reports)
 	deploymentScripts, err := loadDeploymentScripts(absolutePath)
 	if err != nil {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
@@ -97,13 +98,13 @@ func runDeploymentScripts() {
 	executionContext := &commander.ExecutionContext{Client: Client, Environment: Environment}
 	results := deploymentScripts.Execute(executionContext)
 
-	results.Directory = fmt.Sprintf("%s/deployed-at-%s", absolutePath, commander.Timestamp())
+	results.Directory = fmt.Sprintf("%s/deployed-at-%s", reportsPath, commander.Timestamp())
 
 	err = os.MkdirAll(results.Directory, os.ModePerm)
 	if err != nil {
 		os.Exit(1)
 	}
-	_, err = results.Publish(relativePath, *deploymentScripts)
+	_, err = results.Publish(reportsPath, *deploymentScripts)
 	if err != nil {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
 		os.Exit(1)
@@ -116,9 +117,10 @@ func runDeploymentScripts() {
 
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&DeploymentScriptDir, "scriptdirectory", "s", "./scripts/experiments/mysql", "Directory containing deployment scripts")
 	deployCmd.Flags().StringVarP(&Client, "client", "c", "testclient", "Name of client")
 	deployCmd.Flags().StringVarP(&Environment, "environment", "e", "dev", "Type of environment")
+	deployCmd.Flags().StringVarP(&DeploymentScripts, "directory", "s", "./scripts/bluesage-dlp/databases/create/schema.yaml", "Directory containing deployment scripts")
+	deployCmd.Flags().StringVarP(&Reports, "reports", "r", "./reports", "Directory where the reports will be written to")
 	deployCmd.Flags().BoolVarP(&Destroy, "destroy", "z", false, "Run the cleanup script")
 	deployCmd.Flags().BoolVarP(&CleanTmp, "cleantmp", "t", false, "Clean /tmp after execution")
 	deployCmd.Flags().BoolVarP(&DryRun, "dry-run", "d", false, "Dry run")

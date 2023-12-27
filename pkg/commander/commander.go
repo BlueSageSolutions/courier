@@ -35,6 +35,7 @@ const (
 	COMMAND_ARG_SOURCE_TYPE_HTTP    string = "http"
 	COMMAND_ARG_SOURCE_TYPE_FILE    string = "file"
 	COMMAND_ARG_SOURCE_TYPE_JSON    string = "json"
+	COMMAND_ARG_SOURCE_TYPE_TEXT    string = "text"
 	COMMAND_ARG_STYLE_PLAIN         string = "plain"
 	COMMAND_ARG_STYLE_LONG          string = "long"
 	COMMAND_ARG_STYLE_SHORT         string = "short"
@@ -115,7 +116,7 @@ type Replacement struct {
 }
 
 type Source struct {
-	Transformations []transform.Transformation `yaml:"transformation"`
+	Transformations []transform.Transformation `yaml:"transformations"`
 	Data            string                     `yaml:"data"`
 }
 
@@ -433,6 +434,8 @@ func (argument Argument) Resolve(executable string, deploymentScript DeploymentS
 		switch argument.SourceType {
 		case COMMAND_ARG_SOURCE_TYPE_JSON:
 			argumentValue = removeWhiteSpace(argument.ResolveSource(deploymentScript, outputs))
+		case COMMAND_ARG_SOURCE_TYPE_TEXT:
+			argumentValue = argument.ResolveSource(deploymentScript, outputs)
 		default:
 			argumentValue = argument.ResolveFileName(executable, deploymentScript, outputs)
 		}
@@ -976,7 +979,7 @@ func Timestamp() string {
 	return formatted
 }
 
-func (results DeploymentScriptSuiteResults) Publish(relativePath string, deploymentScripts DeploymentScripts) (string, error) {
+func (results DeploymentScriptSuiteResults) Publish(reportsPath string, deploymentScripts DeploymentScripts) (string, error) {
 	publishedFile := fmt.Sprintf("%s/README.md", results.Directory)
 	tableOfContents, err := os.OpenFile(publishedFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -988,7 +991,7 @@ func (results DeploymentScriptSuiteResults) Publish(relativePath string, deploym
 	if err != nil {
 		return publishedFile, err
 	}
-	err = results.AsMarkdown(deploymentScripts, relativePath, results.Directory, tableOfContents)
+	err = results.AsMarkdown(deploymentScripts, reportsPath, results.Directory, tableOfContents)
 	if err != nil {
 		return publishedFile, err
 	}
