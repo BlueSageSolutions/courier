@@ -6,6 +6,9 @@
     password-stub:
       data: >
         <REPLACE_PASSWORD>
+    parameter-name-stub:
+      data: >
+        /clients/<BSDLP_CLIENT>/<BSDLP_ENVIRONMENT>/<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>
     create-user-sql:
       data: >
         CREATE USER <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> IDENTIFIED BY '<REPLACE_PASSWORD>';
@@ -25,7 +28,8 @@
       data: >
         REVOKE ALL PRIVILEGES, GRANT OPTION FROM dlp_fly; FLUSH PRIVILEGES;
   setup:
-    - command: sts
+    - description: check aws auth
+      command: sts
       sub-command: get-caller-identity
     - description: get the database credentials
       command: ssm
@@ -42,28 +46,38 @@
       sub-command: -r
       source: create-users:setup:step-1
     - description: create password
+      sensitive: true
       executable: echo
       source: password-stub
       replacements:
         - match: <REPLACE_PASSWORD>
           replace-with-random: 12
-    - executable: cat
+    - description: stash password locally for use
+      sensitive: true
+      executable: cat
       command: /tmp/_password-stub.json
-    # - description: stash secret in ssm parameter
-    #   command: ssm
-    #   sensitive: true
-    #   sub-command: put-parameter
-    #   arguments:
-    #     - name: name
-    #       value: "/systems/mysql/lower/defaults-extra-file"
-    #     - name: type
-    #       value: "SecureString"
-    #     - name: overwrite
-    #     - name: value
-    #       source: create-schema:setup:step-7
-    #       source-type: text
-    - 
-  main:
+    - description: create ssm parameter path
+      executable: cat
+      source: parameter-name-stub
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+    - description: stash secret in ssm parameter for application
+      sensitive: true
+      command: ssm
+      sub-command: put-parameter
+      arguments:
+        - name: name
+          source: create-users:setup:step-5
+          source-type: text
+        - name: type
+          value: "SecureString"
+        - name: overwrite
+        - name: value
+          source: create-users:setup:step-4
+          source-type: text
     - description: put credentials in /tmp
       executable: persist-arguments
       sensitive: true
@@ -72,6 +86,7 @@
           style: plain
           source: create-users:setup:step-2
           source-type: text
+  main:
     - description: create user
       executable: mysql
       source: create-user-sql
@@ -85,7 +100,7 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
     - description: grant user all privileges
       executable: mysql
       source: grant-user-privileges-sql
@@ -97,7 +112,7 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
     - description: grant superuser all privileges
       executable: mysql
       source: grant-superuser-privileges-sql
@@ -109,7 +124,7 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
   cleanup:
     - description: drop user
       executable: mysql
@@ -122,29 +137,11 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
-    # - description: revoke from user
-    #   executable: mysql
-    #   source: revoke-user-privileges-sql
-    #   replacements:
-    #     - match: <BSDLP_CLIENT>
-    #       replace-with: __CLIENT__
-    #     - match: <BSDLP_ENVIRONMENT>
-    #       replace-with: __ENVIRONMENT__
-    #   arguments:
-    #     - name: use-config
-    #       style: plain
-    #       value: --defaults-extra-file=/tmp/create-users_main_step-0.json
-    # - description: revoke from superuser all privileges
-    #   executable: mysql
-    #   source: revoke-superuser-privileges-sql
-    #   replacements:
-    #     - match: <BSDLP_CLIENT>
-    #       replace-with: __CLIENT__
-    #     - match: <BSDLP_ENVIRONMENT>
-    #       replace-with: __ENVIRONMENT__
-    #   arguments:
-    #     - name: use-config
-    #       style: plain
-    #       value: --defaults-extra-file=/tmp/create-users_main_step-0.json
-
+          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
+    - description: delete parameter
+      command: ssm
+      sub-command: delete-parameter
+      arguments:
+        - name: name
+          source: create-users:setup:step-5
+          source-type: text
