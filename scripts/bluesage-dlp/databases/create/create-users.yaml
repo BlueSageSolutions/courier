@@ -5,27 +5,45 @@
         SELECT 1;
     create-user-sql:
       data: >
-        CREATE USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>'@% IDENTIFIED BY '<REPLACE_PASSWORD>';
+        CREATE USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>' IDENTIFIED BY '<REPLACE_PASSWORD>';
+    drop-user-sql:
+      data: >
+        DROP USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>';
     grant-user-privileges-sql:
       data: >
-        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>'@'%';
+        GRANT ALL PRIVILEGES ON '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.*' TO '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>@%';
     grant-superuser-privileges-sql:
       data: >
-        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO 'dlp_fly'@'%';
+        GRANT ALL PRIVILEGES ON '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.*' TO 'dlp_fly@%';
   setup:
     - command: sts
       sub-command: get-caller-identity
     - description: get the database credentials
       command: ssm
+      sensitive: true
       sub-command: get-parameter
       arguments:
         - name: name
           value: "/systems/mysql/lower/defaults-extra-file"
         - name: with-decryption
+    - description: grad secret and handle whitespace
+      executable: jq
+      sensitive: true
+      command: .Parameter.Value
+      sub-command: -r
+      source: create-users:setup:step-1
   main:
+    - description: put credentials in /tmp
+      executable: persist-arguments
+      sensitive: true
+      arguments:
+        - name: password
+          style: plain
+          source: create-users:setup:step-2
+          source-type: text
     - description: create user
       executable: mysql
-      source: create-user
+      source: create-user-sql
       replacements:
         - match: <BSDLP_CLIENT>
           replace-with: __CLIENT__
@@ -36,6 +54,18 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
+          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
   cleanup:
+    - description: drop user
+      executable: mysql
+      source: drop-user-sql
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
 

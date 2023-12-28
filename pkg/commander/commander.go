@@ -28,6 +28,7 @@ const (
 	ARG_TYPE_LITERAL                string = "literal"
 	EXECUTABLE_AWS                  string = "aws"
 	EXECUTABLE_ECHO                 string = "echo"
+	EXECUTABLE_PERSIST_ARGUMENTS    string = "persist-arguments"
 	EXECUTABLE_INTERNAL_CURL        string = "internal-curl"
 	EXECUTABLE_CAT                  string = "cat"
 	EXECUTABLE_AZURE                string = "az"
@@ -86,17 +87,18 @@ type Sleep struct {
 }
 
 type Command struct {
-	Executable   string        `yaml:"executable"`
-	Name         string        `yaml:"command"`
-	Description  string        `yaml:"description"`
-	Sensitive    bool          `yaml:"sensitive"`
-	Source       string        `yaml:"source"`
-	Replacements []Replacement `yaml:"replacements"`
-	Environment  []string      `yaml:"environment"`
-	Directory    string        `yaml:"directory"`
-	SubCommand   string        `yaml:"sub-command"`
-	Arguments    []Argument    `yaml:"arguments"`
-	Sleep        Sleep         `yaml:"sleep"`
+	ScriptReference string        `yaml:"script-reference"`
+	Executable      string        `yaml:"executable"`
+	Name            string        `yaml:"command"`
+	Description     string        `yaml:"description"`
+	Sensitive       bool          `yaml:"sensitive"`
+	Source          string        `yaml:"source"`
+	Replacements    []Replacement `yaml:"replacements"`
+	Environment     []string      `yaml:"environment"`
+	Directory       string        `yaml:"directory"`
+	SubCommand      string        `yaml:"sub-command"`
+	Arguments       []Argument    `yaml:"arguments"`
+	Sleep           Sleep         `yaml:"sleep"`
 }
 
 type Argument struct {
@@ -543,11 +545,24 @@ func safeJson(unsafe []byte) []byte {
 	return []byte(strings.ReplaceAll(string(unsafe), "\n", ""))
 }
 
+func (command Command) ArgsAsBytes(cmd *exec.Cmd) []byte {
+	return []byte(strings.Join(cmd.Args, ""))
+}
+
+func (command Command) ScriptReferenceAsFilename() string {
+	filename := fmt.Sprintf("/tmp/%s.json", strings.ReplaceAll(command.ScriptReference, ":", "_"))
+	return filename
+}
+
 func (command Command) ExecuteWithTimeout(cmd *exec.Cmd) (json.RawMessage, error) {
 	var output []byte
 	var err error
 	if command.Sleep.Timeout == 0 {
 		switch command.Executable {
+		case EXECUTABLE_PERSIST_ARGUMENTS:
+			if err == nil {
+				err = WriteCommandOutput(command.ScriptReferenceAsFilename(), command.ArgsAsBytes(cmd))
+			}
 		case EXECUTABLE_AWS:
 			output, err = cmd.CombinedOutput()
 		case EXECUTABLE_AZURE:
@@ -641,20 +656,27 @@ func (command Command) ExecuteCatPipe(deploymentScript DeploymentScript, outputs
 
 func (command Command) BuildCmd(deploymentScript DeploymentScript, outputs DeploymentScriptResult) (*exec.Cmd, error) {
 	args := make([]string, 1)
+	var executablePath string
+	var err error
+
 	if len(command.Executable) == 0 {
 		command.Executable = EXECUTABLE_AWS
 	}
-	executablePath, err := exec.LookPath(command.Executable)
-	if err != nil {
-		return nil, err
-	}
-	if command.Executable != EXECUTABLE_ECHO {
-		if len(command.Name) > 0 {
-			args = append(args, command.Name)
+	if command.Executable != EXECUTABLE_PERSIST_ARGUMENTS {
+		executablePath, err = exec.LookPath(command.Executable)
+		if err != nil {
+			return nil, err
 		}
-		if len(command.SubCommand) > 0 {
-			args = append(args, command.SubCommand)
+		if command.Executable != EXECUTABLE_ECHO {
+			if len(command.Name) > 0 {
+				args = append(args, command.Name)
+			}
+			if len(command.SubCommand) > 0 {
+				args = append(args, command.SubCommand)
+			}
 		}
+	} else {
+		executablePath = "no-command"
 	}
 
 	for _, argument := range command.Arguments {
@@ -754,7 +776,7 @@ func (command Command) Execute(deploymentScript DeploymentScript, outputs Deploy
 
 	command.SleepBefore(theCmd.String(), deploymentScript.Path)
 
-	if len(command.Source) > 0 {
+	if len(command.Source) > 0 && command.Executable != EXECUTABLE_PERSIST_ARGUMENTS {
 		commandLine, output, err = command.ExecuteCatPipe(deploymentScript, outputs)
 		command.SleepAfter(commandLine, deploymentScript.Path, output)
 		return commandLine, output, err
@@ -767,6 +789,7 @@ func (command Command) Execute(deploymentScript DeploymentScript, outputs Deploy
 func (script Script) Execute(phase string, deploymentScript DeploymentScript, outputs DeploymentScriptResult) (DeploymentScriptResult, error) {
 	for index := range script {
 		command := script[index]
+		command.ScriptReference = fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index)
 		cmd, jsonOutput, err := command.Execute(deploymentScript, outputs)
 		if err != nil {
 			scriptError := &ScriptError{ErrorMessage: string(jsonOutput)}
@@ -775,7 +798,7 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 				util.GetLogger().Error("marshalling aws error failed", zap.Error(marshalErr))
 				outputs = append(outputs,
 					Result{Sensitive: command.Sensitive,
-						Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+						Script:      command.ScriptReference,
 						Output:      jsonOutput,
 						Command:     cmd,
 						Description: command.Description,
@@ -783,7 +806,7 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 			} else {
 				outputs = append(outputs,
 					Result{Sensitive: command.Sensitive,
-						Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+						Script:      command.ScriptReference,
 						Output:      betterMessage,
 						Command:     cmd,
 						Description: command.Description,
@@ -796,7 +819,7 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 		}
 		outputs = append(outputs,
 			Result{Sensitive: command.Sensitive,
-				Script:      fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index),
+				Script:      command.ScriptReference,
 				Description: command.Description,
 				Output:      jsonOutput,
 				Command:     cmd})

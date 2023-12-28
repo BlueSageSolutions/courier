@@ -119,7 +119,7 @@ func init() {
 	rootCmd.AddCommand(deployCmd)
 	deployCmd.Flags().StringVarP(&Client, "client", "c", "testclient", "Name of client")
 	deployCmd.Flags().StringVarP(&Environment, "environment", "e", "dev", "Type of environment")
-	deployCmd.Flags().StringVarP(&DeploymentScripts, "directory", "s", "./scripts/bluesage-dlp/databases/create/users.yaml", "Directory containing deployment scripts")
+	deployCmd.Flags().StringVarP(&DeploymentScripts, "directory", "s", "./scripts/bluesage-dlp/databases/create/create-users.yaml", "Directory containing deployment scripts")
 	deployCmd.Flags().StringVarP(&Reports, "reports", "r", "./reports", "Directory where the reports will be written to")
 	deployCmd.Flags().BoolVarP(&Destroy, "destroy", "z", false, "Run the cleanup script")
 	deployCmd.Flags().BoolVarP(&CleanTmp, "cleantmp", "t", false, "Clean /tmp after execution")
