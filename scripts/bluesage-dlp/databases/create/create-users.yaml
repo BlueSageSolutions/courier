@@ -3,6 +3,9 @@
     test-connection-sql:
       data: >
         SELECT 1;
+    password-stub:
+      data: >
+        <REPLACE_PASSWORD>
     create-user-sql:
       data: >
         CREATE USER <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> IDENTIFIED BY '<REPLACE_PASSWORD>';
@@ -32,12 +35,34 @@
         - name: name
           value: "/systems/mysql/lower/defaults-extra-file"
         - name: with-decryption
-    - description: grad secret and handle whitespace
+    - description: grab secret and handle whitespace
       executable: jq
       sensitive: true
       command: .Parameter.Value
       sub-command: -r
       source: create-users:setup:step-1
+    - description: create password
+      executable: echo
+      source: password-stub
+      replacements:
+        - match: <REPLACE_PASSWORD>
+          replace-with-random: 12
+    - executable: cat
+      command: /tmp/_password-stub.json
+    # - description: stash secret in ssm parameter
+    #   command: ssm
+    #   sensitive: true
+    #   sub-command: put-parameter
+    #   arguments:
+    #     - name: name
+    #       value: "/systems/mysql/lower/defaults-extra-file"
+    #     - name: type
+    #       value: "SecureString"
+    #     - name: overwrite
+    #     - name: value
+    #       source: create-schema:setup:step-7
+    #       source-type: text
+    - 
   main:
     - description: put credentials in /tmp
       executable: persist-arguments
@@ -56,7 +81,7 @@
         - match: <BSDLP_ENVIRONMENT>
           replace-with: __ENVIRONMENT__
         - match: <REPLACE_PASSWORD>
-          replace-with-random: 12
+          replace-with: create-users:setup:step-4
       arguments:
         - name: use-config
           style: plain
