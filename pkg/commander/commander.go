@@ -708,7 +708,12 @@ func (command Command) SleepBefore(cmdString, label string) {
 	fmt.Printf("[%s] prior to executing a command in the script: %s\n", Timestamp(), label)
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("\tdelay-before: %d\n", command.Sleep.Before)
-	fmt.Printf("\tcommand to execute: %s\n", cmdString)
+	if command.Sensitive {
+		fmt.Print("\tcommand contains sensitive data: REDACTED\n")
+	} else {
+		fmt.Printf("\tcommand to execute: %s\n", cmdString)
+	}
+
 	if len(command.Sleep.BeforeMessage) > 0 {
 		fmt.Printf("\tmessage: %s\n", command.Sleep.BeforeMessage)
 	}
@@ -720,7 +725,11 @@ func (command Command) SleepAfter(cmdString, label string, message json.RawMessa
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("[%s] after executing a command in the script: %s\n", Timestamp(), label)
 	fmt.Println("----------------------------------------------------------------------")
-	fmt.Printf("\tcommand executed: %s\n", cmdString)
+	if command.Sensitive {
+		fmt.Print("\tcommand was executed with sensitive data: REDACTED\n")
+	} else {
+		fmt.Printf("\tcommand executed: %s\n", cmdString)
+	}
 	fmt.Printf("\tdelay-after: %d\n", command.Sleep.After)
 	if command.Sensitive {
 		fmt.Print("\tresults:\nREDACTED\n")
@@ -845,9 +854,17 @@ func writeCodeBlock(file *os.File, encoding, label, value string) error {
 	return nil
 }
 func (result Result) AsMarkdown(file *os.File) error {
-	err := writeCode(file, "Command", result.Command)
-	if err != nil {
-		return err
+	var err error
+	if result.Sensitive {
+		err = writeCode(file, "Command", "REDACTED: Command may contain sensitive data")
+		if err != nil {
+			return err
+		}
+	} else {
+		err = writeCode(file, "Command", result.Command)
+		if err != nil {
+			return err
+		}
 	}
 	err = writeCode(file, "Description", result.Description)
 	if err != nil {
