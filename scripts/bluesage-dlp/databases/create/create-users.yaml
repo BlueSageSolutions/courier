@@ -1,0 +1,41 @@
+- script: create-users
+  sources:
+    test-connection-sql:
+      data: >
+        SELECT 1;
+    create-user-sql:
+      data: >
+        CREATE USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>'@% IDENTIFIED BY '<REPLACE_PASSWORD>';
+    grant-user-privileges-sql:
+      data: >
+        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>'@'%';
+    grant-superuser-privileges-sql:
+      data: >
+        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO 'dlp_fly'@'%';
+  setup:
+    - command: sts
+      sub-command: get-caller-identity
+    - description: get the database credentials
+      command: ssm
+      sub-command: get-parameter
+      arguments:
+        - name: name
+          value: "/systems/mysql/lower/defaults-extra-file"
+        - name: with-decryption
+  main:
+    - description: create user
+      executable: mysql
+      source: create-user
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+        - match: <REPLACE_PASSWORD>
+          replace-with-random: 12
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/_mysql-config.json
+  cleanup:
+
