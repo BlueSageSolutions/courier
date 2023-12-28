@@ -5,16 +5,22 @@
         SELECT 1;
     create-user-sql:
       data: >
-        CREATE USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>' IDENTIFIED BY '<REPLACE_PASSWORD>';
+        CREATE USER <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> IDENTIFIED BY '<REPLACE_PASSWORD>';
     drop-user-sql:
       data: >
-        DROP USER '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>';
+        DROP USER <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
     grant-user-privileges-sql:
       data: >
-        GRANT ALL PRIVILEGES ON '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.*' TO '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>@%';
+        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
+    revoke-user-privileges-sql:
+      data: >
+        REVOKE ALL PRIVILEGES, GRANT OPTION FROM <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>; FLUSH PRIVILEGES;
     grant-superuser-privileges-sql:
       data: >
-        GRANT ALL PRIVILEGES ON '<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.*' TO 'dlp_fly@%';
+        GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO dlp_fly;
+    revoke-superuser-privileges-sql:
+      data: >
+        REVOKE ALL PRIVILEGES, GRANT OPTION FROM dlp_fly; FLUSH PRIVILEGES;
   setup:
     - command: sts
       sub-command: get-caller-identity
@@ -55,6 +61,30 @@
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+    - description: grant user all privileges
+      executable: mysql
+      source: grant-user-privileges-sql
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+    - description: grant superuser all privileges
+      executable: mysql
+      source: grant-superuser-privileges-sql
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/create-users_main_step-0.json
   cleanup:
     - description: drop user
       executable: mysql
@@ -68,4 +98,28 @@
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+    # - description: revoke from user
+    #   executable: mysql
+    #   source: revoke-user-privileges-sql
+    #   replacements:
+    #     - match: <BSDLP_CLIENT>
+    #       replace-with: __CLIENT__
+    #     - match: <BSDLP_ENVIRONMENT>
+    #       replace-with: __ENVIRONMENT__
+    #   arguments:
+    #     - name: use-config
+    #       style: plain
+    #       value: --defaults-extra-file=/tmp/create-users_main_step-0.json
+    # - description: revoke from superuser all privileges
+    #   executable: mysql
+    #   source: revoke-superuser-privileges-sql
+    #   replacements:
+    #     - match: <BSDLP_CLIENT>
+    #       replace-with: __CLIENT__
+    #     - match: <BSDLP_ENVIRONMENT>
+    #       replace-with: __ENVIRONMENT__
+    #   arguments:
+    #     - name: use-config
+    #       style: plain
+    #       value: --defaults-extra-file=/tmp/create-users_main_step-0.json
 
