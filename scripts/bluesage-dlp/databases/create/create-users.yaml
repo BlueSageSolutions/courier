@@ -26,12 +26,12 @@
         GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO dlp_fly;
     revoke-superuser-privileges-sql:
       data: >
-        REVOKE ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> FROM dlp_fly; FLUSH PRIVILEGES;
+        REVOKE ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* FROM dlp_fly; FLUSH PRIVILEGES;
   setup:
     - description: check aws auth
       command: sts
       sub-command: get-caller-identity
-    - description: get the database credentials
+    - description: get the master database credentials
       command: ssm
       sensitive: true
       sub-command: get-parameter
@@ -53,18 +53,18 @@
           style: plain
           source: create-users:setup:step-2
           source-type: text
-    - description: create password
+    - description: create application's password
       sensitive: true
       executable: echo
       source: password-stub
       replacements:
         - match: <REPLACE_PASSWORD>
           replace-with-random: 12
-    - description: stash password locally for use
+    - description: stash application's password locally for use
       sensitive: true
       executable: cat
       command: /tmp/_password-stub.json
-    - description: create ssm parameter path
+    - description: create ssm parameter path for application's password
       executable: cat
       source: parameter-name-stub
       replacements:
@@ -72,7 +72,8 @@
           replace-with: __CLIENT__
         - match: <BSDLP_ENVIRONMENT>
           replace-with: __ENVIRONMENT__
-    - description: stash secret in ssm parameter for application
+  main:
+    - description: stash application's password in ssm parameter
       sensitive: true
       command: ssm
       sub-command: put-parameter
@@ -86,8 +87,7 @@
         - name: value
           source: create-users:setup:step-5
           source-type: text
-  main:
-    - description: create user
+    - description: create application user
       executable: mysql
       source: create-user-sql
       replacements:
@@ -101,7 +101,7 @@
         - name: use-config
           style: plain
           value: --defaults-extra-file=/tmp/create-users_setup_step-3.json
-    - description: grant user all privileges
+    - description: grant application user all privileges
       executable: mysql
       source: grant-user-privileges-sql
       replacements:
