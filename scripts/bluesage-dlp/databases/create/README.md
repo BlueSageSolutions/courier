@@ -25,7 +25,7 @@ The `create-schema` script will use the mysql CLI to create the new client's dat
 
 ### [create-users.yaml](create-schema.yaml)
 
-The `create-users` script will use the mysql CLI to create an application user for the client's database:
+The `create-users` script will use the mysql CLI to create an application user for the client's database. It will also place the password for this user in AWS SSM parameter store at `/clients/<BSDLP_CLIENT>/<BSDLP_ENVIRONMENT>/<BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>`:
 
 ```sh
  courier run -s ./scripts/bluesage-dlp/databases/create/create-users.yaml -c 2024client -e dev
