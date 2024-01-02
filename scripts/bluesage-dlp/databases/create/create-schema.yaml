@@ -9,82 +9,40 @@
     drop-schema-sql:
       data: >
         DROP DATABASE <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>;
-    mysql-config:
-      data: |+
-        [client]
-        user = "<REPLACE_USER>"
-        password = "<REPLACE_PASSWORD>"
-        host = "<REPLACE_HOST>"
   setup:
-    - description: check suthentication status
+    - description: check aws authentication status
       command: sts
       sub-command: get-caller-identity
     - description: get the database credentials
-      command: secretsmanager
+      command: ssm
       sensitive: true
-      sub-command: get-secret-value
+      sub-command: get-parameter
       arguments:
-        - name: secret-id
-          value: bluedlp-lower-db
-    - description: parse the secret string
+        - name: name
+          value: "/systems/mysql/lower/defaults-extra-file"
+        - name: with-decryption
+    - description: grab secret and handle whitespace
       executable: jq
-      sub-command: -r
-      command: .SecretString
       sensitive: true
+      command: .Parameter.Value
+      sub-command: -r
       source: create-schema:setup:step-1
-    - description: parse the host
-      executable: jq
-      sub-command: -r
-      command: .host
-      source: create-schema:setup:step-2
-    - description: parse the username
-      executable: jq
-      sub-command: -r
-      command: .username
-      source: create-schema:setup:step-2
-    - description: parse the port
-      executable: jq
-      sub-command: -r
-      command: .port
-      source: create-schema:setup:step-2
-    - description: parse the password
-      executable: jq
+    - description: put credentials in /tmp
+      executable: persist-arguments
       sensitive: true
-      sub-command: -r
-      command: .password
-      source: create-schema:setup:step-2
-    - description: build mysql config file
-      executable: cat
-      sensitive: true
-      source: mysql-config
-      replacements:
-        - match: <REPLACE_USER>
-          replace-with: create-schema:setup:step-4
-        - match: <REPLACE_PASSWORD>
-          replace-with: create-schema:setup:step-6
-        - match: <REPLACE_HOST>
-          replace-with: create-schema:setup:step-3
+      arguments:
+        - name: password
+          style: plain
+          source: create-schema:setup:step-2
+          source-type: text
     - description: test connection
       executable: mysql
       source: test-connection-sql
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
+          value: --defaults-extra-file=/tmp/create-schema_setup_step-3.json
   main:
-    - description: stash secret in ssm parameter
-      command: ssm
-      sensitive: true
-      sub-command: put-parameter
-      arguments:
-        - name: name
-          value: "/systems/mysql/lower/defaults-extra-file"
-        - name: type
-          value: "SecureString"
-        - name: overwrite
-        - name: value
-          source: create-schema:setup:step-7
-          source-type: text
     - description: create schema
       executable: mysql
       source: create-schema-sql
@@ -96,14 +54,8 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
+          value: --defaults-extra-file=/tmp/create-schema_setup_step-3.json
   cleanup:
-    - description: delete parameter
-      command: ssm
-      sub-command: delete-parameter
-      arguments:
-        - name: name
-          value: "/systems/mysql/lower/defaults-extra-file"
     - description: drop schema
       executable: mysql
       source: drop-schema-sql
@@ -115,5 +67,5 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/_mysql-config.json
+          value: --defaults-extra-file=/tmp/create-schema_setup_step-3.json
 

@@ -45,6 +45,14 @@
       command: .Parameter.Value
       sub-command: -r
       source: create-users:setup:step-1
+    - description: put credentials in /tmp
+      executable: persist-arguments
+      sensitive: true
+      arguments:
+        - name: password
+          style: plain
+          source: create-users:setup:step-2
+          source-type: text
     - description: create password
       sensitive: true
       executable: echo
@@ -70,21 +78,13 @@
       sub-command: put-parameter
       arguments:
         - name: name
-          source: create-users:setup:step-5
+          source: create-users:setup:step-6
           source-type: text
         - name: type
           value: "SecureString"
         - name: overwrite
         - name: value
-          source: create-users:setup:step-4
-          source-type: text
-    - description: put credentials in /tmp
-      executable: persist-arguments
-      sensitive: true
-      arguments:
-        - name: password
-          style: plain
-          source: create-users:setup:step-2
+          source: create-users:setup:step-5
           source-type: text
   main:
     - description: create user
@@ -96,11 +96,11 @@
         - match: <BSDLP_ENVIRONMENT>
           replace-with: __ENVIRONMENT__
         - match: <REPLACE_PASSWORD>
-          replace-with: create-users:setup:step-4
+          replace-with: create-users:setup:step-5
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-3.json
     - description: grant user all privileges
       executable: mysql
       source: grant-user-privileges-sql
@@ -112,7 +112,7 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-3.json
     - description: grant superuser all privileges
       executable: mysql
       source: grant-superuser-privileges-sql
@@ -124,8 +124,15 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
+          value: --defaults-extra-file=/tmp/create-users_setup_step-3.json
   cleanup:
+    - description: delete parameter
+      command: ssm
+      sub-command: delete-parameter
+      arguments:
+        - name: name
+          source: create-users:setup:step-6
+          source-type: text
     - description: drop user
       executable: mysql
       source: drop-user-sql
@@ -137,11 +144,4 @@
       arguments:
         - name: use-config
           style: plain
-          value: --defaults-extra-file=/tmp/create-users_setup_step-7.json
-    - description: delete parameter
-      command: ssm
-      sub-command: delete-parameter
-      arguments:
-        - name: name
-          source: create-users:setup:step-5
-          source-type: text
+          value: --defaults-extra-file=/tmp/create-users_setup_step-3.json

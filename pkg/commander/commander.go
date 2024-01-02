@@ -743,10 +743,15 @@ func (command Command) SleepBefore(cmdString, label string) {
 	time.Sleep(time.Duration(command.Sleep.Before) * time.Second)
 }
 
-func (command Command) SleepAfter(cmdString, label string, message json.RawMessage) {
+func (command Command) SleepAfter(cmdString, label string, message json.RawMessage, hasError bool) {
 	fmt.Println("----------------------------------------------------------------------")
 	fmt.Printf("[%s] after executing a command in the script: %s\n", Timestamp(), label)
 	fmt.Println("----------------------------------------------------------------------")
+	if hasError {
+		fmt.Printf("\tthere was an error at: %s\n", command.ScriptReference)
+		fmt.Println("----------------------------------------------------------------------")
+		return
+	}
 	if command.Sensitive {
 		fmt.Print("\tcommand was executed with sensitive data: REDACTED\n")
 	} else {
@@ -778,11 +783,11 @@ func (command Command) Execute(deploymentScript DeploymentScript, outputs Deploy
 
 	if len(command.Source) > 0 && command.Executable != EXECUTABLE_PERSIST_ARGUMENTS {
 		commandLine, output, err = command.ExecuteCatPipe(deploymentScript, outputs)
-		command.SleepAfter(commandLine, deploymentScript.Path, output)
+		command.SleepAfter(commandLine, deploymentScript.Path, output, err != nil)
 		return commandLine, output, err
 	}
 	commandLine, output, err = command.ExecuteNoPipe(deploymentScript, outputs)
-	command.SleepAfter(commandLine, deploymentScript.Path, output)
+	command.SleepAfter(commandLine, deploymentScript.Path, output, err != nil)
 	return commandLine, output, err
 }
 
@@ -790,6 +795,7 @@ func (script Script) Execute(phase string, deploymentScript DeploymentScript, ou
 	for index := range script {
 		command := script[index]
 		command.ScriptReference = fmt.Sprintf("%s:%s:step-%d", deploymentScript.Name, phase, index)
+		fmt.Printf("executing: %s\n%s\n\n", command.ScriptReference, command.Description)
 		cmd, jsonOutput, err := command.Execute(deploymentScript, outputs)
 		if err != nil {
 			scriptError := &ScriptError{ErrorMessage: string(jsonOutput)}
