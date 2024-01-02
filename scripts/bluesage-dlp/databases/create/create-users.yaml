@@ -26,7 +26,7 @@
         GRANT ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT>.* TO dlp_fly;
     revoke-superuser-privileges-sql:
       data: >
-        REVOKE ALL PRIVILEGES, GRANT OPTION FROM dlp_fly; FLUSH PRIVILEGES;
+        REVOKE ALL PRIVILEGES ON <BSDLP_CLIENT>_<BSDLP_ENVIRONMENT> FROM dlp_fly; FLUSH PRIVILEGES;
   setup:
     - description: check aws auth
       command: sts
@@ -136,6 +136,18 @@
     - description: drop user
       executable: mysql
       source: drop-user-sql
+      replacements:
+        - match: <BSDLP_CLIENT>
+          replace-with: __CLIENT__
+        - match: <BSDLP_ENVIRONMENT>
+          replace-with: __ENVIRONMENT__
+      arguments:
+        - name: use-config
+          style: plain
+          value: --defaults-extra-file=/tmp/create-users_setup_step-3.json
+    - description: revoke dlp_fly's privileges
+      executable: mysql
+      source: revoke-superuser-privileges-sql
       replacements:
         - match: <BSDLP_CLIENT>
           replace-with: __CLIENT__
