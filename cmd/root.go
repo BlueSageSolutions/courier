@@ -27,6 +27,8 @@ var CurlMethod string
 var FilterDir string
 var DeploymentScripts string
 var Reports string
+var Manifest string
+var SQLTemplate string
 var Client string
 var Environment string
 var Destroy bool

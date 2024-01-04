@@ -1,0 +1,23 @@
+client-profile:
+  name: client1
+  infrastructure-type: t2
+  contacts:
+    - fred@client1.com
+  email-domain: client1.com
+environments:
+  - name: dev
+    start-date: 02/01/2024
+    operations:
+      - create
+services:
+  - name: lion
+    url: loan.client1.com
+    operations:
+      - build
+      - install
+      - configure
+      - start
+databases:
+  - name: default
+    operations:
+      - create

@@ -9,11 +9,11 @@
           style: plain
           value: mfm
   main:
-    - description: check the alarms
-      executable: bash
-      directory: /Users/jploughman/projects/deploy-scripts/
-      environment: 
-        - config-common
-        - config-common-db
-        - config-mfm
-      command: checkAlarms
+    # - description: check the alarms
+    #   executable: bash
+    #   directory: /Users/jploughman/projects/deploy-scripts/
+    #   environment: 
+    #     - config-common
+    #     - config-common-db
+    #     - config-mfm
+    #   command: checkAlarms

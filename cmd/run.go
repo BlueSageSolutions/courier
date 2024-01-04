@@ -12,10 +12,10 @@ import (
 	"go.uber.org/zap"
 )
 
-var deployCmd = &cobra.Command{
+var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run a series of deployment scriptss.",
-	Long:  `Run a series of deployment scriptss`,
+	Short: "Run a series of deployment scripts.",
+	Long:  `Run a series of deployment scripts`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runDeploymentScripts()
 	},
@@ -78,10 +78,22 @@ func runDeploymentScripts() {
 		util.GetLogger().Error("loadDeploymentScripts", zap.Error(err))
 		os.Exit(1)
 	}
-	os.Setenv("PROCESS", "transformer")
-	os.Setenv("SOURCE_TYPE", "local")
-	os.Setenv("ENABLE_CLOUD_WATCH", "false")
-	os.Setenv("ENABLE_HEC", "false")
+
+	if len(os.Getenv("COURIER_CLIENT")) > 0 {
+		Client = os.Getenv("COURIER_CLIENT")
+	}
+
+	if len(os.Getenv("COURIER_ENVIRONMENT")) > 0 {
+		Environment = os.Getenv("COURIER_ENVIRONMENT")
+	}
+
+	if strings.ToUpper(os.Getenv("COURIER_DESTROY")) == "TRUE" {
+		Destroy = true
+	}
+
+	if strings.ToUpper(os.Getenv("COURIER_CLEAN_TMP")) == "TRUE" {
+		CleanTmp = true
+	}
 
 	fmt.Printf("### arguments:\n\tdirectory: %s\n", absolutePath)
 	fmt.Printf("\tdry run: %v\n", DryRun)
@@ -116,12 +128,12 @@ func runDeploymentScripts() {
 }
 
 func init() {
-	rootCmd.AddCommand(deployCmd)
-	deployCmd.Flags().StringVarP(&Client, "client", "c", "testclient", "Name of client")
-	deployCmd.Flags().StringVarP(&Environment, "environment", "e", "dev", "Type of environment")
-	deployCmd.Flags().StringVarP(&DeploymentScripts, "directory", "s", "./scripts/bluesage-dlp/databases/create/create-users.yaml", "Directory containing deployment scripts")
-	deployCmd.Flags().StringVarP(&Reports, "reports", "r", "./reports", "Directory where the reports will be written to")
-	deployCmd.Flags().BoolVarP(&Destroy, "destroy", "z", false, "Run the cleanup script")
-	deployCmd.Flags().BoolVarP(&CleanTmp, "cleantmp", "t", false, "Clean /tmp after execution")
-	deployCmd.Flags().BoolVarP(&DryRun, "dry-run", "d", false, "Dry run")
+	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().StringVarP(&Client, "client", "c", "", "Name of client")
+	runCmd.Flags().StringVarP(&Environment, "environment", "e", "", "Type of environment")
+	runCmd.Flags().StringVarP(&DeploymentScripts, "directory", "s", "./scripts/bluesage-dlp/databases/create/create-users.yaml", "Either the location of a single deployment script;\nor, the directory containing deployment scripts")
+	runCmd.Flags().StringVarP(&Reports, "reports", "r", "./reports", "Directory where the reports will be written to")
+	runCmd.Flags().BoolVarP(&Destroy, "destroy", "z", false, "Run the cleanup script")
+	runCmd.Flags().BoolVarP(&CleanTmp, "cleantmp", "t", false, "Clean /tmp after execution")
+	runCmd.Flags().BoolVarP(&DryRun, "dry-run", "d", false, "Dry run")
 }

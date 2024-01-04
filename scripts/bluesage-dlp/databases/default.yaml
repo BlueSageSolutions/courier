@@ -1,5 +1,7 @@
-- script: default
+- script: databases.default.create
   sources:
   setup:
-    - command: sts
-      sub-command: get-caller-identity
+    - command: courier
+      sub-command: run
+      arguments:
+

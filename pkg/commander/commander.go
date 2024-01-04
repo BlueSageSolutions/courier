@@ -22,6 +22,12 @@ import (
 )
 
 const (
+	OP_CREATE                       string = "create"
+	OP_DESTROY                      string = "destroy"
+	OP_BUILD                        string = "build"
+	OP_START                        string = "start"
+	OP_INSTALL                      string = "install"
+	OP_CONFIGURE                    string = "configure"
 	CLIENT_KEY                      string = "__CLIENT__"
 	ENVIRONMENT_KEY                 string = "__ENVIRONMENT__"
 	ARG_TYPE_JQ                     string = "jq"
@@ -48,6 +54,40 @@ const (
 
 var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
+
+type ClientProfile struct {
+	Name               string   `yaml:"name"`
+	InfrastructureType string   `yaml:"infrastructure-type"`
+	Contacts           []string `yaml:"contacts"`
+	EmailDomain        string   `yaml:"email-domain"`
+}
+
+type EnvironmentDesc struct {
+	Name       string   `yaml:"name"`
+	StartDate  string   `yaml:"start-date"`
+	Operations []string `yaml:"operations"`
+}
+
+type DatabaseDesc struct {
+	Name       string   `yaml:"name"`
+	Operations []string `yaml:"operations"`
+}
+
+type ServiceDesc struct {
+	Name       string   `yaml:"name"`
+	URL        string   `yaml:"url"`
+	Operations []string `yaml:"operations"`
+}
+
+type ManifestResults struct {
+}
+
+type Manifest struct {
+	ClientProfile ClientProfile `yaml:"client-profile"`
+	Environments  []EnvironmentDesc
+	Services      []ServiceDesc
+	Databases     []DatabaseDesc
+}
 
 type OutputChannel struct {
 	Output []byte
@@ -930,7 +970,19 @@ func (deploymentScript DeploymentScript) AsMarkdown(file *os.File) error {
 	if err != nil {
 		return err
 	}
-
+	manifest := &Manifest{}
+	manifest.ClientProfile.Contacts = append(manifest.ClientProfile.Contacts, "fred@foo.com")
+	environment := &EnvironmentDesc{}
+	environment.Operations = append(environment.Operations, "create")
+	service := &ServiceDesc{}
+	service.Operations = append(environment.Operations, "start")
+	manifest.Environments = append(manifest.Environments, *environment)
+	manifest.Services = append(manifest.Services, *service)
+	manifestBlock, err := yaml.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	writeCodeBlock(file, "yaml", "MANIFEST", string(manifestBlock))
 	return writeCodeBlock(file, "yaml", "Executed", string(markdown))
 }
 
@@ -1103,4 +1155,43 @@ func (resources ResourceList) Generate(filepath string) error {
 		deploymentScriptList.DeploymentScripts = append(deploymentScriptList.DeploymentScripts, *deploymentScript)
 	}
 	return deploymentScriptList.Generate(filepath)
+}
+
+func (manifest *Manifest) Validate() error {
+	return nil
+}
+
+func LoadManifest(location string) (*Manifest, error) {
+	var manifest Manifest
+	yfile, err := os.ReadFile(location)
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(yfile, &manifest)
+
+	if err != nil {
+		return nil, err
+	}
+	return &manifest, nil
+}
+
+func (manifest *Manifest) Process() (*ManifestResults, error) {
+	os.Setenv("COURIER_CLIENT", manifest.ClientProfile.Name)
+	for _, environment := range manifest.Environments {
+		os.Setenv("COURIER_ENVIRONMENT", environment.Name)
+		for _, database := range manifest.Databases {
+			for _, operation := range database.Operations {
+				database.Perform(operation, &manifest.ClientProfile, &environment)
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (database *DatabaseDesc) Perform(operation string, client *ClientProfile, environment *EnvironmentDesc) {
+
+}
+
+func (results *ManifestResults) Publish(manifest *Manifest, path string) error {
+	return nil
 }

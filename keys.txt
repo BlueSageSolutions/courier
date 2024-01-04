@@ -1,0 +1,10 @@
+<aws secret>
+<secret key>
+<aws key>
+<aws secret key>
+<system>
+<client name from Paradatec>
+<client api gateway key>
+<aws account number>
+<customer key filestack key>
+<base_client>
